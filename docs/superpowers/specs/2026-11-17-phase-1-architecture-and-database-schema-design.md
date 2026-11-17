@@ -615,11 +615,11 @@ sequenceDiagram
 
     par Broadcast Emergency Veto Alerts
         Server->>Bot: High-Priority Emergency Alert to all Admins (Push + Telegram/Zalo + SMS)
-        Bot->>Admin: 🚨 EMERGENCY: Break-Glass initiated by [Contact]. Auto-unlocks in 48h.
+        Bot->>Admin: EMERGENCY: Break-Glass initiated by [Contact]. Auto-unlocks in 48h.
     end
 
     alt Admin Vetoes (False Alarm or Malicious)
-        Admin->>Bot: Tap [🚨 VETO EMERGENCY ACCESS]
+        Admin->>Bot: Tap [VETO EMERGENCY ACCESS]
         Bot->>Server: POST /vault/break-glass/veto (signed token)
         Server->>Server: Update status = 'vetoed', record vetoed_by & timestamp
         Server->>Server: Record audit log: BREAK_GLASS_VETOED

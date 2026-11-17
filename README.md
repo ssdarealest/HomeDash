@@ -1,4 +1,4 @@
-# 🏠 HomeDash — Family OS
+# HomeDash — Family OS
 
 > **An open-core, local-first, privacy-first cross-platform operating system for modern families.**
 
@@ -11,7 +11,7 @@
 
 ---
 
-## 🌟 Vision & Philosophy
+## Vision & Philosophy
 
 Modern household management is fragmented across chaotic chat threads, generic note apps, calendars, and spreadsheets. **HomeDash** replaces this fragmented stack with a unified, cohesive, privacy-first **Family Operating System** designed around five foundational pillars:
 
@@ -28,7 +28,7 @@ Modern household management is fragmented across chaotic chat threads, generic n
 
 ---
 
-## 📐 Monorepo Architecture
+## Monorepo Architecture
 
 HomeDash is engineered as a strictly stratified 6-tier monorepo using **pnpm workspaces** and **Turborepo**. Package dependencies flow strictly **downward** to guarantee zero circular dependencies and modular reusability:
 
@@ -90,7 +90,7 @@ HomeDash/
 
 ---
 
-## 🛡️ Security, Privacy & Compliance
+## Security, Privacy & Compliance
 
 | Security Dimension | Technical Implementation |
 |---|---|
@@ -104,7 +104,7 @@ HomeDash/
 
 ---
 
-## 🚀 Quick Start & Development
+## Quick Start & Development
 
 ### Prerequisites
 
@@ -166,7 +166,7 @@ The API server runs on `http://localhost:3000`.
 
 ---
 
-## 🧪 Testing & Verification
+## Testing & Verification
 
 The repository enforces 100% type safety and strict test validation across all packages:
 
@@ -183,7 +183,7 @@ pnpm turbo run test typecheck
 
 ---
 
-## 🗺️ Roadmap & Implementation Phases
+## Roadmap & Implementation Phases
 
 - [x] **Phase 1: Architecture, 6-Tier Monorepo & Database Schema**
   - Turborepo workspace scaffolding and polyglot Flutter shim
@@ -215,6 +215,6 @@ pnpm turbo run test typecheck
 
 ---
 
-## 📄 License
+## License
 
 This project is open-source under the **AGPLv3 (GNU Affero General Public License v3.0)**. See the `LICENSE` file for details.
