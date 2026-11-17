@@ -67,6 +67,9 @@ importers:
       '@homedash/protocol':
         specifier: workspace:^
         version: link:../../packages/protocol
+      '@homedash/server-runtime':
+        specifier: workspace:^
+        version: link:../../packages/server-runtime
       '@homedash/server-schema':
         specifier: workspace:^
         version: link:../../packages/server-schema

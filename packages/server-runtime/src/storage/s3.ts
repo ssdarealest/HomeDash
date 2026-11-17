@@ -44,12 +44,12 @@ async function hmacSha256(key: Uint8Array | string, data: string): Promise<Uint8
   const rawKey = typeof key === 'string' ? enc.encode(key) : key;
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    rawKey,
+    rawKey as any,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data));
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data) as any);
   return new Uint8Array(signature);
 }
 
@@ -137,7 +137,7 @@ export class S3StorageClient {
 
     const enc = new TextEncoder();
     const hashedCanonicalRequest = bytesToHex(
-      new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(canonicalRequest)))
+      new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(canonicalRequest) as any))
     );
 
     const stringToSign = [

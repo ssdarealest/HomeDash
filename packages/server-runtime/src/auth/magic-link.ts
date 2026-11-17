@@ -33,12 +33,12 @@ async function computeHmacSha256(data: string, secret: string): Promise<string> 
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
-    enc.encode(secret),
+    enc.encode(secret) as any,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data));
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data) as any);
   return Buffer.from(sig)
     .toString('base64')
     .replace(/=/g, '')
