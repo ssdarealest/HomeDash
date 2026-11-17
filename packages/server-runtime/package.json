@@ -1,0 +1,31 @@
+{
+  "name": "@homedash/server-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./middleware": "./src/middleware/index.ts",
+    "./storage": "./src/storage/index.ts",
+    "./cache": "./src/cache/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@homedash/shared": "workspace:^",
+    "@homedash/protocol": "workspace:^",
+    "hono": "catalog:",
+    "ioredis": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@types/node": "catalog:"
+  }
+}
