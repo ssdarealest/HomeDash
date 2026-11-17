@@ -3,7 +3,6 @@ shellEmulator: true
 
 onlyBuiltDependencies:
   - esbuild
-  - better-sqlite3
 
 packages:
   - 'packages/**'
@@ -38,4 +37,5 @@ catalog:
   '@types/node': ^22.13.9
 
 allowBuilds:
+  better-sqlite3: true
   esbuild: true
