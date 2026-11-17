@@ -1,0 +1,27 @@
+{
+  "name": "@homedash/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@homedash/protocol": "workspace:^",
+    "@homedash/server-schema": "workspace:^",
+    "@homedash/shared": "workspace:^",
+    "hono": "catalog:",
+    "@hono/zod-validator": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@types/node": "catalog:"
+  }
+}
