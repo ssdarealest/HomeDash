@@ -5,9 +5,17 @@ import {
   BreakGlassInitiateSchema,
   createOpenAPIDocument,
 } from '@homedash/protocol';
+import { createAuthRouter } from './routes/auth';
 
-export function createApp() {
+export interface AppOptions {
+  jwtSecret?: string;
+  magicLinkSecret?: string;
+  rpId?: string;
+}
+
+export function createApp(opts?: AppOptions) {
   const app = new Hono();
+  const jwtSecret = opts?.jwtSecret || process.env.JWT_SECRET || 'homedash_fallback_development_secret_key_32_bytes!';
 
   // Enable CORS
   app.use('*', cors());
@@ -25,6 +33,14 @@ export function createApp() {
   app.get('/openapi.json', (c) => {
     return c.json(createOpenAPIDocument());
   });
+
+  // Mount Auth Router under /api/v1/auth
+  const authRouter = createAuthRouter({
+    jwtSecret,
+    magicLinkSecret: opts?.magicLinkSecret,
+    rpId: opts?.rpId,
+  });
+  app.route('/api/v1/auth', authRouter);
 
   // Vault break-glass initiation with validation
   app.post(

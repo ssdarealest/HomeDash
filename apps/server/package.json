@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@homedash/protocol": "workspace:^",
+    "@homedash/server-runtime": "workspace:^",
     "@homedash/server-schema": "workspace:^",
     "@homedash/shared": "workspace:^",
     "hono": "catalog:",
