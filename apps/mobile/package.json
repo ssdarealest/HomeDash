@@ -1,0 +1,12 @@
+{
+  "name": "@homedash/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Family OS Flutter Mobile Application (Material 3 + Drift SQLite)",
+  "scripts": {
+    "codegen": "echo 'Flutter API client generation ready'",
+    "build": "echo 'Flutter build ready'",
+    "test": "echo 'Flutter tests ready'",
+    "lint": "echo 'Flutter analyze ready'"
+  }
+}
