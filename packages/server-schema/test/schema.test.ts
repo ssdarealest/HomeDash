@@ -89,5 +89,13 @@ describe('PostgreSQL Drizzle Server Schema', () => {
     expect(rlsSql).toContain('CREATE OR REPLACE FUNCTION fn_record_sync_change()');
     expect(rlsSql).toContain("op := 'DELETE';");
     expect(rlsSql).toContain('payload := NULL;');
+
+    // Verify finance policies block caregiver_guest
+    expect(rlsSql).toContain("current_setting('app.current_user_role', true) != 'caregiver_guest'");
+
+    // Verify CDC triggers are attached to collaborative tables
+    expect(rlsSql).toContain('CREATE OR REPLACE TRIGGER trg_sync_medications');
+    expect(rlsSql).toContain('CREATE OR REPLACE TRIGGER trg_sync_finance_transactions');
+    expect(rlsSql).toContain('CREATE OR REPLACE TRIGGER trg_sync_chores');
   });
 });

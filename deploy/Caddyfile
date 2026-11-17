@@ -1,0 +1,35 @@
+{
+    admin off
+}
+
+{$SERVER_NAME:localhost} {
+    # Security Headers
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+
+    # API and Backend WebSocket routing
+    handle /api/* {
+        reverse_proxy server:3000
+    }
+
+    handle /ws {
+        reverse_proxy server:3000
+    }
+
+    handle /health {
+        reverse_proxy server:3000
+    }
+
+    handle /openapi.json {
+        reverse_proxy server:3000
+    }
+
+    # Catch-all fallback to server
+    handle {
+        reverse_proxy server:3000
+    }
+}

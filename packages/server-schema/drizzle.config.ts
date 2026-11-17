@@ -1,10 +1,12 @@
 import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
+  dialect: 'postgresql',
   schema: './src/schema/index.ts',
   out: './drizzle',
-  dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/homedash',
+    url: process.env.DATABASE_URL || 'postgres://homedash:homedash_secret_password@localhost:5432/homedash',
   },
+  verbose: true,
+  strict: true,
 });

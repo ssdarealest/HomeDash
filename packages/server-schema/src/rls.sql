@@ -40,15 +40,24 @@ CREATE POLICY household_members_isolation ON household_members
 -- 3. Base Multi-Tenant Isolation Policies
 CREATE POLICY household_tenant_isolation ON finance_accounts
     FOR ALL
-    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND current_setting('app.current_user_role', true) != 'caregiver_guest'
+    );
 
 CREATE POLICY household_tenant_isolation ON finance_transactions
     FOR ALL
-    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND current_setting('app.current_user_role', true) != 'caregiver_guest'
+    );
 
 CREATE POLICY household_tenant_isolation ON utility_bills
     FOR ALL
-    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND current_setting('app.current_user_role', true) != 'caregiver_guest'
+    );
 
 CREATE POLICY household_tenant_isolation ON medications
     FOR ALL
@@ -237,3 +246,61 @@ BEGIN
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- 9. Attach CDC Triggers for Local-First Collaborative Tables
+CREATE OR REPLACE TRIGGER trg_sync_finance_accounts
+    AFTER INSERT OR UPDATE OR DELETE ON finance_accounts
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_finance_transactions
+    AFTER INSERT OR UPDATE OR DELETE ON finance_transactions
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_utility_bills
+    AFTER INSERT OR UPDATE OR DELETE ON utility_bills
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_medications
+    AFTER INSERT OR UPDATE OR DELETE ON medications
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_medication_logs
+    AFTER INSERT OR UPDATE OR DELETE ON medication_logs
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_caregiver_shifts
+    AFTER INSERT OR UPDATE OR DELETE ON caregiver_shifts
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_vitals_logs
+    AFTER INSERT OR UPDATE OR DELETE ON vitals_logs
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_medical_allergies
+    AFTER INSERT OR UPDATE OR DELETE ON medical_allergies
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_vault_items
+    AFTER INSERT OR UPDATE OR DELETE ON vault_items
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_asset_renewals
+    AFTER INSERT OR UPDATE OR DELETE ON asset_renewals
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_home_wiki_cards
+    AFTER INSERT OR UPDATE OR DELETE ON home_wiki_cards
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_grocery_items
+    AFTER INSERT OR UPDATE OR DELETE ON grocery_items
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_meal_plans
+    AFTER INSERT OR UPDATE OR DELETE ON meal_plans
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
+
+CREATE OR REPLACE TRIGGER trg_sync_chores
+    AFTER INSERT OR UPDATE OR DELETE ON chores
+    FOR EACH ROW EXECUTE FUNCTION fn_record_sync_change();
