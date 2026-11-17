@@ -12,6 +12,7 @@
     "./fixtures/*": "./fixtures/*"
   },
   "scripts": {
+    "build": "tsc --noEmit",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

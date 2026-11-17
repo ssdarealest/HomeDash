@@ -47,10 +47,22 @@ describe('Shared Protocol & Schema Validation', () => {
     expect(VaultItemCreateSchema.safeParse(validVaultItem).success).toBe(true);
   });
 
-  it('should generate valid OpenAPI specification metadata', () => {
-    const spec = createOpenAPIDocument();
+  it('should generate valid OpenAPI specification metadata with populated schemas', () => {
+    const spec = createOpenAPIDocument() as any;
     expect(spec.openapi).toMatch(/^3\./);
     expect(spec.info.title).toBe('Family OS API');
     expect(spec.paths).toBeDefined();
+    expect(spec.paths['/health']).toBeDefined();
+    expect(spec.paths['/sync/push']).toBeDefined();
+    expect(spec.paths['/vault/break-glass/initiate']).toBeDefined();
+
+    // Verify schemas are populated for Dart / Mobile codegen
+    expect(spec.components).toBeDefined();
+    expect(spec.components.schemas).toBeDefined();
+    expect(spec.components.schemas.SyncPushRequest).toBeDefined();
+    expect(spec.components.schemas.SyncPushResponse).toBeDefined();
+    expect(spec.components.schemas.BreakGlassInitiate).toBeDefined();
+    expect(spec.components.schemas.VaultItemCreate).toBeDefined();
+    expect(spec.components.schemas.VaultItem).toBeDefined();
   });
 });

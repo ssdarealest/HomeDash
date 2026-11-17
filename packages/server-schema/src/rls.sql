@@ -1,4 +1,6 @@
--- Enable Row Level Security
+-- PostgreSQL 17+ Row Level Security (RLS) Policies & CDC Sync Trigger
+
+-- 1. Enable Row Level Security on all multi-tenant tables
 ALTER TABLE households ENABLE ROW LEVEL SECURITY;
 ALTER TABLE household_modules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE household_members ENABLE ROW LEVEL SECURITY;
@@ -22,7 +24,20 @@ ALTER TABLE chores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_changes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- 1. Base Multi-Tenant Isolation Policies (enforces current_setting('app.current_household_id'))
+-- 2. Core Household & Member Access Policies
+CREATE POLICY household_access ON households
+    FOR ALL
+    USING (id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_modules_access ON household_modules
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_members_isolation ON household_members
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+-- 3. Base Multi-Tenant Isolation Policies
 CREATE POLICY household_tenant_isolation ON finance_accounts
     FOR ALL
     USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
@@ -32,6 +47,30 @@ CREATE POLICY household_tenant_isolation ON finance_transactions
     USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
 
 CREATE POLICY household_tenant_isolation ON utility_bills
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_tenant_isolation ON medications
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_tenant_isolation ON caregiver_shifts
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_tenant_isolation ON vitals_logs
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_tenant_isolation ON medical_allergies
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_tenant_isolation ON asset_renewals
+    FOR ALL
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_tenant_isolation ON home_wiki_cards
     FOR ALL
     USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
 
@@ -47,7 +86,15 @@ CREATE POLICY household_tenant_isolation ON chores
     FOR ALL
     USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
 
--- 2. Zero-Knowledge Vault Access (Admin Only)
+CREATE POLICY household_tenant_isolation ON sync_changes
+    FOR SELECT
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY household_tenant_isolation ON audit_logs
+    FOR SELECT
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+-- 4. Zero-Knowledge Vault Access (Admin Only)
 CREATE POLICY vault_admin_access ON vault_items
     FOR ALL
     USING (
@@ -55,7 +102,36 @@ CREATE POLICY vault_admin_access ON vault_items
         AND current_setting('app.current_user_role', true) = 'admin'
     );
 
--- 3. Break-Glass Escrow Access (Recipient can view their escrow share only when request is approved, or admin can manage)
+CREATE POLICY vault_keys_access ON household_vault_keys
+    FOR ALL
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND (
+            user_id = NULLIF(current_setting('app.current_user_id', true), '')::UUID
+            OR current_setting('app.current_user_role', true) = 'admin'
+        )
+    );
+
+-- 5. Break-Glass Requests Policy (Eliminates Escrow Deadlock)
+CREATE POLICY break_glass_select ON break_glass_requests
+    FOR SELECT
+    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+
+CREATE POLICY break_glass_insert ON break_glass_requests
+    FOR INSERT
+    WITH CHECK (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND requester_user_id = NULLIF(current_setting('app.current_user_id', true), '')::UUID
+    );
+
+CREATE POLICY break_glass_admin_update ON break_glass_requests
+    FOR UPDATE
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND current_setting('app.current_user_role', true) = 'admin'
+    );
+
+-- 6. Break-Glass Escrow Access (Recipient can view their share only when request is approved, or admin can manage)
 CREATE POLICY vault_escrow_access ON vault_escrow_shares
     FOR SELECT
     USING (
@@ -74,8 +150,15 @@ CREATE POLICY vault_escrow_access ON vault_escrow_shares
         )
     );
 
--- 4. Medication Logs (Admins, Seniors, and Caregivers can view and log doses)
-CREATE POLICY medication_caregiver_access ON medication_logs
+CREATE POLICY vault_escrow_admin_all ON vault_escrow_shares
+    FOR ALL
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND current_setting('app.current_user_role', true) = 'admin'
+    );
+
+-- 7. Medication Logs (Admins, Seniors, and Caregivers can view, log, and update status)
+CREATE POLICY medication_caregiver_select ON medication_logs
     FOR SELECT
     USING (
         household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
@@ -88,3 +171,69 @@ CREATE POLICY medication_caregiver_insert ON medication_logs
         household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
         AND current_setting('app.current_user_role', true) IN ('admin', 'senior', 'caregiver_guest')
     );
+
+CREATE POLICY medication_caregiver_update ON medication_logs
+    FOR UPDATE
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND current_setting('app.current_user_role', true) IN ('admin', 'senior', 'caregiver_guest')
+    );
+
+CREATE POLICY medication_admin_delete ON medication_logs
+    FOR DELETE
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND current_setting('app.current_user_role', true) = 'admin'
+    );
+
+-- 8. PostgreSQL CDC Trigger Function for sync_changes Journaling
+CREATE OR REPLACE FUNCTION fn_record_sync_change()
+RETURNS TRIGGER AS $$
+DECLARE
+    target_household_id UUID;
+    target_hlc TEXT;
+    op VARCHAR(10);
+    payload JSONB;
+BEGIN
+    IF (TG_OP = 'DELETE') THEN
+        target_household_id := OLD.household_id;
+        target_hlc := to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+        op := 'DELETE';
+        payload := NULL;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        target_household_id := NEW.household_id;
+        target_hlc := to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+        IF NEW.deleted_at IS NOT NULL AND (OLD.deleted_at IS NULL OR OLD.deleted_at <> NEW.deleted_at) THEN
+            -- Soft delete tombstone captured as DELETE operation with NULL payload
+            op := 'DELETE';
+            payload := NULL;
+        ELSE
+            op := 'UPDATE';
+            payload := to_jsonb(NEW);
+        END IF;
+    ELSIF (TG_OP = 'INSERT') THEN
+        target_household_id := NEW.household_id;
+        target_hlc := to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+        op := 'INSERT';
+        payload := to_jsonb(NEW);
+    END IF;
+
+    INSERT INTO sync_changes (
+        household_id,
+        table_name,
+        record_id,
+        hlc_timestamp,
+        operation,
+        record_payload
+    ) VALUES (
+        target_household_id,
+        TG_TABLE_NAME,
+        COALESCE(NEW.id, OLD.id),
+        target_hlc,
+        op,
+        payload
+    );
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;

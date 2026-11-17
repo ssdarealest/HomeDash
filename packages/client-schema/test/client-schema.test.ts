@@ -16,6 +16,8 @@ describe('Local SQLite Client Schema', () => {
     expect(tables).toContain('local_grocery_items');
     expect(tables).toContain('local_vitals_logs');
     expect(tables).toContain('local_finance_transactions');
+    expect(tables).toContain('local_vault_items');
+    expect(tables).toContain('local_asset_renewals');
 
     db.close();
   });

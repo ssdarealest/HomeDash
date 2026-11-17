@@ -34,7 +34,6 @@ describe('Hybrid Logical Clock (HLC)', () => {
 
   it('should advance local clock when receiving remote timestamp in the future', () => {
     const clockA = new HybridLogicalClock('node-a');
-    const clockB = new HybridLogicalClock('node-b');
 
     // Simulate clockB being ahead
     const futureRemote = {
@@ -47,5 +46,18 @@ describe('Hybrid Logical Clock (HLC)', () => {
     expect(merged.millis).toBe(futureRemote.millis);
     expect(merged.counter).toBe(6);
     expect(merged.nodeId).toBe('node-a');
+  });
+
+  it('should handle physical clock jumping backwards without losing monotonicity', () => {
+    const futureTime = Date.now() + 100000;
+    const hlc = new HybridLogicalClock('node-drift');
+    // Simulate HLC having advanced into the future (e.g. from a remote sync event)
+    hlc.recv({ millis: futureTime, counter: 10, nodeId: 'node-future' });
+
+    // Now physical clock is behind hlc.millis
+    const tNext = hlc.send();
+    expect(tNext.millis).toBe(futureTime);
+    expect(tNext.counter).toBe(12);
+    expect(tNext.nodeId).toBe('node-drift');
   });
 });

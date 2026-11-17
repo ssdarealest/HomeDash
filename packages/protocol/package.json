@@ -13,6 +13,7 @@
     "./openapi": "./src/openapi.ts"
   },
   "scripts": {
+    "build": "vitest run test/generate-openapi.test.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

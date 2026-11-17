@@ -206,3 +206,38 @@ CREATE TABLE IF NOT EXISTS local_home_wiki_cards (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+
+CREATE TABLE IF NOT EXISTS local_vault_items (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    encrypted_payload TEXT NOT NULL,
+    payload_nonce TEXT NOT NULL,
+    encrypted_dek TEXT NOT NULL,
+    dek_nonce TEXT NOT NULL,
+    key_version INTEGER NOT NULL DEFAULT 1,
+    created_by_member_id TEXT,
+    -- Sync columns
+    sync_state INTEGER NOT NULL DEFAULT 1,
+    hlc_timestamp TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS local_asset_renewals (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    asset_name TEXT NOT NULL,
+    renewal_date TEXT NOT NULL,
+    notification_lead_days INTEGER NOT NULL DEFAULT 30,
+    notes TEXT,
+    -- Sync columns
+    sync_state INTEGER NOT NULL DEFAULT 1,
+    hlc_timestamp TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);

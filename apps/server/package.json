@@ -5,6 +5,7 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
+    "build": "tsc --noEmit",
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "test": "vitest run",

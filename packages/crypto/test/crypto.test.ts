@@ -1,17 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { derivePersonalKek } from '../src/argon2';
 import { sealVaultItem, unsealVaultItem } from '../src/envelope';
-import { sealEscrowShare, unsealEscrowShare, generateX25519Keypair } from '../src/escrow';
+import {
+  sealEscrowShare,
+  unsealEscrowShare,
+  generateX25519Keypair,
+  deriveEscrowEncryptionKey,
+} from '../src/escrow';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import cryptoVectors from '@homedash/shared/fixtures/crypto-vectors.json';
 
 describe('Cryptographic Primitives & Envelope Encryption', () => {
-  it('should derive personal KEK deterministically from passphrase and salt', async () => {
-    const salt = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
-    const kek1 = await derivePersonalKek(cryptoVectors.argon2id.passphrase, salt, { memory: 1024, iterations: 1 });
-    const kek2 = await derivePersonalKek(cryptoVectors.argon2id.passphrase, salt, { memory: 1024, iterations: 1 });
+  it('should derive personal KEK deterministically from passphrase and salt matching golden vector', async () => {
+    const salt = hexToBytes(cryptoVectors.argon2id.saltHex);
+    const kek = await derivePersonalKek(cryptoVectors.argon2id.passphrase, salt, {
+      memory: 1024,
+      iterations: 1,
+    });
 
-    expect(kek1.length).toBe(32);
-    expect(kek1).toEqual(kek2);
+    expect(kek.length).toBe(32);
+    expect(bytesToHex(kek)).toBe(cryptoVectors.argon2id.expectedTestKeyHex);
+  });
+
+  it('should verify RFC 7748 and HKDF escrow key derivation against golden vector', () => {
+    const sharedSecret = hexToBytes(cryptoVectors.x25519.rfc7748SharedSecretHex);
+    const derivedEscrowKek = deriveEscrowEncryptionKey(sharedSecret);
+
+    expect(bytesToHex(derivedEscrowKek)).toBe(cryptoVectors.x25519.expectedEscrowKekHex);
   });
 
   it('should seal and unseal vault item using envelope encryption (DEK + KEK)', () => {
@@ -34,7 +49,7 @@ describe('Cryptographic Primitives & Envelope Encryption', () => {
     expect(() => unsealVaultItem(sealed, wrongKek)).toThrow();
   });
 
-  it('should seal and unseal Break-Glass escrow share using X25519 asymmetric ECDH', () => {
+  it('should seal and unseal Break-Glass escrow share using X25519 asymmetric ECDH + HKDF', () => {
     const householdKek = new Uint8Array(32).fill(42);
     const recipientKeypair = generateX25519Keypair();
 

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, boolean, timestamp, pgEnum, unique } from 'drizzle-orm/pg-core';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'senior', 'teen_child', 'caregiver_guest']);
 
@@ -29,14 +29,20 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const householdMembers = pgTable('household_members', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  householdId: uuid('household_id').references(() => households.id, { onDelete: 'cascade' }).notNull(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  role: userRoleEnum('role').default('teen_child').notNull(),
-  displayName: varchar('display_name', { length: 80 }),
-  isEmergencyContact: boolean('is_emergency_contact').default(false).notNull(),
-  validUntil: timestamp('valid_until', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const householdMembers = pgTable(
+  'household_members',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    householdId: uuid('household_id').references(() => households.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    role: userRoleEnum('role').default('teen_child').notNull(),
+    displayName: varchar('display_name', { length: 80 }),
+    isEmergencyContact: boolean('is_emergency_contact').default(false).notNull(),
+    validUntil: timestamp('valid_until', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    unique('unique_household_user').on(t.householdId, t.userId),
+  ]
+);
