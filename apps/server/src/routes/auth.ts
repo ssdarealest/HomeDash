@@ -7,6 +7,8 @@ import {
   signSessionJwt,
   generateCaregiverMagicToken,
   verifyCaregiverMagicToken,
+  InMemoryCacheClient,
+  type CacheClient,
   type SessionPayload,
 } from '@homedash/server-runtime';
 
@@ -16,6 +18,7 @@ export interface AuthRouterOptions {
   rpId?: string;
   rpName?: string;
   baseUrl?: string;
+  cache?: CacheClient;
 }
 
 const CaregiverInviteSchema = z.object({
@@ -39,6 +42,7 @@ export function createAuthRouter(opts: AuthRouterOptions) {
   const rpId = opts.rpId || 'localhost';
   const rpName = opts.rpName || 'HomeDash Family OS';
   const baseUrl = opts.baseUrl || 'http://localhost:3000';
+  const cache = opts.cache || new InMemoryCacheClient();
 
   // 1. Generate Caregiver Magic Link (Admin only)
   router.post(
@@ -77,7 +81,7 @@ export function createAuthRouter(opts: AuthRouterOptions) {
     }
   );
 
-  // 2. Consume Caregiver Magic Link
+  // 2. Consume Caregiver Magic Link with Replay Protection
   router.post(
     '/caregiver/consume',
     zValidator('json', CaregiverConsumeSchema, (result, c) => {
@@ -87,15 +91,23 @@ export function createAuthRouter(opts: AuthRouterOptions) {
     }),
     async (c) => {
       const { token } = c.req.valid('json');
-      const claims = await verifyCaregiverMagicToken(token, magicSecret);
 
+      // Check single-use revocation cache to prevent replay
+      const isConsumed = await cache.get(`revoked:magic:${token}`);
+      if (isConsumed) {
+        return c.json({ error: 'Token has already been consumed or revoked' }, 401);
+      }
+
+      const claims = await verifyCaregiverMagicToken(token, magicSecret);
       if (!claims) {
         return c.json({ error: 'Invalid or expired caregiver magic token' }, 401);
       }
 
-      // Generate a temporary caregiver session JWT (duration matching token remaining TTL)
       const remainingSeconds = Math.max(60, Math.floor((claims.expiresAt - Date.now()) / 1000));
-      const caregiverUserId = `guest-${crypto.randomUUID().slice(0, 8)}`;
+      // Mark token as consumed in cache for the duration of its remaining validity
+      await cache.set(`revoked:magic:${token}`, '1', remainingSeconds);
+
+      const caregiverUserId = crypto.randomUUID();
 
       const sessionToken = await signSessionJwt(
         {
@@ -131,7 +143,7 @@ export function createAuthRouter(opts: AuthRouterOptions) {
     });
   });
 
-  // 4. WebAuthn Passkey Registration Options
+  // 4. WebAuthn Passkey Registration Options (Stores challenge with 5-min TTL)
   router.post(
     '/passkey/register/options',
     zValidator('json', PasskeyRegisterOptionsSchema, (result, c) => {
@@ -146,6 +158,9 @@ export function createAuthRouter(opts: AuthRouterOptions) {
         .replace(/=/g, '')
         .replace(/\+/g, '-')
         .replace(/\//g, '_');
+
+      // Persist challenge with 5-minute TTL to prevent replay
+      await cache.set(`passkey:challenge:${username}`, randomChallenge, 300);
 
       const userIdBase64 = Buffer.from(crypto.randomUUID()).toString('base64url');
 
@@ -170,13 +185,16 @@ export function createAuthRouter(opts: AuthRouterOptions) {
     }
   );
 
-  // 5. WebAuthn Passkey Login Options
+  // 5. WebAuthn Passkey Login Options (Stores challenge with 5-min TTL)
   router.post('/passkey/login/options', async (c) => {
     const randomChallenge = Buffer.from(crypto.getRandomValues(new Uint8Array(32)))
       .toString('base64')
       .replace(/=/g, '')
       .replace(/\+/g, '-')
       .replace(/\//g, '_');
+
+    // Persist login challenge with 5-minute TTL
+    await cache.set(`passkey:challenge:anon:${randomChallenge}`, randomChallenge, 300);
 
     return c.json({
       challenge: randomChallenge,

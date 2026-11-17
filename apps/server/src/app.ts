@@ -5,6 +5,11 @@ import {
   BreakGlassInitiateSchema,
   createOpenAPIDocument,
 } from '@homedash/protocol';
+import {
+  authMiddleware,
+  requireRole,
+  blockCaregiverFromSensitiveModules,
+} from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
 
 export interface AppOptions {
@@ -19,6 +24,9 @@ export function createApp(opts?: AppOptions) {
 
   // Enable CORS
   app.use('*', cors());
+
+  // Block caregivers from financial ledgers and zero-knowledge vault globally
+  app.use('*', blockCaregiverFromSensitiveModules());
 
   // Health check
   app.get('/health', (c) => {
@@ -42,9 +50,11 @@ export function createApp(opts?: AppOptions) {
   });
   app.route('/api/v1/auth', authRouter);
 
-  // Vault break-glass initiation with validation
+  // Vault break-glass initiation with auth and validation
   app.post(
     '/vault/break-glass/initiate',
+    authMiddleware(jwtSecret),
+    requireRole(['admin', 'senior', 'teen_child']),
     zValidator('json', BreakGlassInitiateSchema, (result, c) => {
       if (!result.success) {
         return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);

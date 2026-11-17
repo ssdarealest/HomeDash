@@ -2,7 +2,7 @@ import type { MiddlewareHandler } from 'hono';
 import type { SessionPayload } from '../auth/jwt';
 
 export interface DbSessionClient {
-  unsafe: (sql: string) => Promise<any>;
+  unsafe: (sql: string, params?: any[]) => Promise<any>;
 }
 
 export function rlsContextMiddleware(
@@ -12,18 +12,11 @@ export function rlsContextMiddleware(
     const session = c.get('session' as any) as SessionPayload | undefined;
     if (session) {
       const db = await getDbClient(c);
-      // Clean / escape parameter values
-      const householdId = session.householdId.replace(/'/g, "''");
-      const userId = session.userId.replace(/'/g, "''");
-      const role = session.role.replace(/'/g, "''");
-
-      const rlsContextSql = `
-        SET LOCAL app.current_household_id = '${householdId}';
-        SET LOCAL app.current_user_id = '${userId}';
-        SET LOCAL app.current_user_role = '${role}';
-      `.trim();
-
-      await db.unsafe(rlsContextSql);
+      // Parameterized set_config calls (is_local = true) to prevent SQL injection and transaction scope loss
+      await db.unsafe(
+        `SELECT set_config('app.current_household_id', $1, true), set_config('app.current_user_id', $2, true), set_config('app.current_user_role', $3, true);`,
+        [session.householdId, session.userId, session.role]
+      );
     }
 
     await next();

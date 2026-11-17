@@ -18,6 +18,8 @@ describe('RBAC Middleware', () => {
     app.get('/public-protected', (c) => c.json({ ok: true, session: c.get('session' as any) }));
     app.get('/admin-only', requireRole(['admin']), (c) => c.json({ ok: true }));
     app.get('/finance/accounts', (c) => c.json({ accounts: [] }));
+    app.get('/api/v1/finance/transactions', (c) => c.json({ txs: [] }));
+    app.get('/api/v1/vault/items', (c) => c.json({ items: [] }));
     app.get('/vault/items', (c) => c.json({ items: [] }));
     app.get('/caregiver/meds', (c) => c.json({ meds: [] }));
 
@@ -87,6 +89,11 @@ describe('RBAC Middleware', () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toContain('Caregivers cannot access financial ledgers or zero-knowledge vault');
+
+    const resApiV1 = await app.request('/api/v1/finance/transactions', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(resApiV1.status).toBe(403);
   });
 
   it('should strictly block caregiver_guest from /vault/* routes', async () => {

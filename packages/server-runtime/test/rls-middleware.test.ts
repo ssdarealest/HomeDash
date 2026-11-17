@@ -3,12 +3,12 @@ import { Hono } from 'hono';
 import { rlsContextMiddleware } from '../src/middleware/rls';
 
 describe('RLS Context Middleware', () => {
-  it('should set PostgreSQL session variables for transaction', async () => {
-    const executedQueries: string[] = [];
+  it('should set PostgreSQL session variables safely via parameterized set_config', async () => {
+    const executedQueries: { sql: string; params?: any[] }[] = [];
 
     const mockDb = {
-      unsafe: async (query: string) => {
-        executedQueries.push(query);
+      unsafe: async (sql: string, params?: any[]) => {
+        executedQueries.push({ sql, params });
       },
     };
 
@@ -31,8 +31,11 @@ describe('RLS Context Middleware', () => {
     expect(res.status).toBe(200);
 
     expect(executedQueries.length).toBe(1);
-    expect(executedQueries[0]).toContain("SET LOCAL app.current_household_id = '22222222-2222-2222-2222-222222222222'");
-    expect(executedQueries[0]).toContain("SET LOCAL app.current_user_id = '11111111-1111-1111-1111-111111111111'");
-    expect(executedQueries[0]).toContain("SET LOCAL app.current_user_role = 'admin'");
+    expect(executedQueries[0].sql).toContain("set_config('app.current_household_id'");
+    expect(executedQueries[0].params).toEqual([
+      '22222222-2222-2222-2222-222222222222',
+      '11111111-1111-1111-1111-111111111111',
+      'admin',
+    ]);
   });
 });

@@ -82,7 +82,17 @@ export async function verifyCaregiverMagicToken(
     const dataToSign = `${encodedHeader}.${encodedPayload}`;
     const expectedSig = await computeHmacSha256(dataToSign, secret);
 
-    if (signature !== expectedSig) {
+    const sigBuf = Buffer.from(signature);
+    const expectedBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expectedBuf.length) {
+      return null;
+    }
+    // Constant-time comparison to prevent timing attacks
+    let match = 0;
+    for (let i = 0; i < sigBuf.length; i++) {
+      match |= sigBuf[i] ^ expectedBuf[i];
+    }
+    if (match !== 0) {
       return null;
     }
 

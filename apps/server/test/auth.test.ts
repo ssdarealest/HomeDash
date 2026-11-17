@@ -139,4 +139,45 @@ describe('Auth REST Endpoints (/api/v1/auth)', () => {
     const loginBody = await loginRes.json();
     expect(loginBody.challenge).toBeDefined();
   });
+
+  it('should prevent replay of consumed caregiver magic link token', async () => {
+    const adminToken = await signSessionJwt(
+      {
+        userId: '11111111-1111-1111-1111-111111111111',
+        householdId: '22222222-2222-2222-2222-222222222222',
+        role: 'admin',
+      },
+      jwtSecret
+    );
+
+    const inviteRes = await app.request('/api/v1/auth/caregiver/invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        patientMemberId: '33333333-3333-3333-3333-333333333333',
+        caregiverName: 'Nurse Replay Test',
+        ttlHours: 4,
+      }),
+    });
+    const { token } = await inviteRes.json();
+
+    // First consumption succeeds
+    const firstConsume = await app.request('/api/v1/auth/caregiver/consume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    expect(firstConsume.status).toBe(200);
+
+    // Second consumption (replay) must be rejected
+    const secondConsume = await app.request('/api/v1/auth/caregiver/consume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    expect(secondConsume.status).toBe(401);
+  });
 });

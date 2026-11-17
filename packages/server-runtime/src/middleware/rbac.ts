@@ -27,7 +27,7 @@ export function blockCaregiverFromSensitiveModules(): MiddlewareHandler {
     const session = c.get('session' as any) as SessionPayload | undefined;
     if (session?.role === 'caregiver_guest') {
       const path = c.req.path;
-      if (path.startsWith('/finance') || path.startsWith('/vault')) {
+      if (/(?:^|\/)(finance|vault)(?:\/|$)/i.test(path)) {
         return c.json(
           {
             error: 'Forbidden: Caregivers cannot access financial ledgers or zero-knowledge vault',
