@@ -1,0 +1,32 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.turbo
+out
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Scratch & IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Superpowers scratch
+.superpowers/
+
+# OS files
+.DS_Store
+Thumbs.db
