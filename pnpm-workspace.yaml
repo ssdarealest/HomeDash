@@ -1,0 +1,34 @@
+catalogMode: prefer
+shellEmulator: true
+
+packages:
+  - 'packages/**'
+  - 'services/**'
+  - 'apps/**'
+  - '!**/dist/**'
+
+catalog:
+  # Backend & Core Runtime
+  hono: ^4.7.4
+  '@hono/zod-validator': ^0.4.3
+  '@hono/zod-openapi': ^0.18.4
+  drizzle-orm: ^0.40.0
+  drizzle-kit: ^0.30.5
+  postgres: ^3.4.5
+  bullmq: ^5.45.0
+  ioredis: ^5.6.0
+  zod: ^3.24.2
+
+  # Cryptography
+  '@noble/ciphers': ^1.2.1
+  '@noble/curves': ^1.8.1
+  '@noble/hashes': ^1.7.1
+
+  # Testing & Build Toolchain
+  typescript: ^5.8.2
+  vitest: ^3.0.7
+  tsdown: ^0.15.0
+  oxlint: ^0.15.0
+  better-sqlite3: ^11.8.1
+  '@types/better-sqlite3': ^7.6.12
+  '@types/node': ^22.13.9
