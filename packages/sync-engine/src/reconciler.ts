@@ -56,24 +56,16 @@ export class ConflictReconciler {
   constructor(private store: LocalEntityStore) {}
 
   public parseHlc(raw: string): HLCTimestamp {
-    try {
-      if (raw.includes('_')) {
-        return HybridLogicalClock.unpack(raw);
-      }
-      // Support alternate ISO:counter:nodeId colon separator
-      const parts = raw.split(':');
-      if (parts.length >= 3) {
-        const iso = parts.slice(0, -2).join(':');
-        const counterHex = parts[parts.length - 2];
-        const nodeId = parts[parts.length - 1];
-        const millis = new Date(iso).getTime();
-        const counter = parseInt(counterHex, 16) || 0;
+    const match = raw.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)[_:]([0-9a-fA-F]+)[_:](.+)$/);
+    if (match) {
+      const millis = new Date(match[1]).getTime();
+      const counter = parseInt(match[2], 16) || 0;
+      const nodeId = match[3];
+      if (!Number.isNaN(millis)) {
         return { millis, counter, nodeId };
       }
-    } catch {
-      // Fallback
     }
-    return { millis: Date.parse(raw) || 0, counter: 0, nodeId: 'unknown' };
+    return { millis: Date.now(), counter: 0, nodeId: 'unknown' };
   }
 
   public compareHlc(aRaw: string, bRaw: string): number {
