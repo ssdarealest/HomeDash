@@ -28,6 +28,13 @@ class _ExpenseQuickLogSheetState extends State<ExpenseQuickLogSheet> {
   final List<String> _categories = ['Groceries', 'Utilities', 'Medical', 'Child Allowance', 'Dining', 'Other'];
 
   @override
+  void dispose() {
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
@@ -38,7 +45,7 @@ class _ExpenseQuickLogSheetState extends State<ExpenseQuickLogSheet> {
           bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: dynamic,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Quick Expense Log', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),

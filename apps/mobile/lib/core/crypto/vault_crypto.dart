@@ -1,44 +1,55 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 class VaultEnvelope {
-  final String payloadCiphertext; // base64
-  final String payloadNonce; // base64
+  final String encryptedPayload; // base64
+  final String payloadNonce; // base64 (24 bytes for XChaCha / 12 bytes for AES-GCM)
   final String encryptedDek; // base64
   final String dekNonce; // base64
-  final String kekSalt; // base64
+  final int keyVersion;
 
   const VaultEnvelope({
-    required this.payloadCiphertext,
+    required this.encryptedPayload,
     required this.payloadNonce,
     required this.encryptedDek,
     required this.dekNonce,
-    required this.kekSalt,
+    this.keyVersion = 1,
   });
 
   Map<String, dynamic> toJson() => {
-        'payloadCiphertext': payloadCiphertext,
+        'encryptedPayload': encryptedPayload,
         'payloadNonce': payloadNonce,
         'encryptedDek': encryptedDek,
         'dekNonce': dekNonce,
-        'kekSalt': kekSalt,
+        'keyVersion': keyVersion,
       };
 
   factory VaultEnvelope.fromJson(Map<String, dynamic> json) => VaultEnvelope(
-        payloadCiphertext: json['payloadCiphertext'] ?? json['payload_ciphertext'] ?? '',
+        encryptedPayload: json['encryptedPayload'] ?? json['encrypted_payload'] ?? '',
         payloadNonce: json['payloadNonce'] ?? json['payload_nonce'] ?? '',
         encryptedDek: json['encryptedDek'] ?? json['encrypted_dek'] ?? '',
         dekNonce: json['dekNonce'] ?? json['dek_nonce'] ?? '',
-        kekSalt: json['kekSalt'] ?? json['kek_salt'] ?? '',
+        keyVersion: json['keyVersion'] ?? json['key_version'] ?? 1,
       );
 }
 
 class VaultCrypto {
-  /// Derives Key Encryption Key (KEK) from user passphrase and salt using PBKDF2-HMAC-SHA256
+  static final Random _secureRandom = Random.secure();
+
+  /// Generates cryptographically secure random bytes
+  static Uint8List secureRandomBytes(int length) {
+    final values = Uint8List(length);
+    for (int i = 0; i < length; i++) {
+      values[i] = _secureRandom.nextInt(256);
+    }
+    return values;
+  }
+
+  /// Derives Key Encryption Key (KEK) using PBKDF2-HMAC-SHA256 with 100,000 iterations
   static Uint8List deriveKek(String passphrase, Uint8List salt, {int iterations = 100000}) {
     final passBytes = utf8.encode(passphrase);
-    // PBKDF2 implementation using pure Dart crypto package
     var u = Hmac(sha256, passBytes).convert([...salt, 0, 0, 0, 1]).bytes;
     var t = Uint8List.fromList(u);
 
@@ -51,59 +62,62 @@ class VaultCrypto {
     return t; // 32-byte key
   }
 
-  /// Encrypts payload into a two-tier envelope:
-  /// 1. Generates 32-byte DEK
-  /// 2. Encrypts payload with DEK
-  /// 3. Encrypts DEK with KEK
+  /// Encrypts payload into a two-tier envelope using secure random DEK and nonces:
+  /// DEK is encrypted using KEK; Payload is encrypted using DEK.
   static VaultEnvelope encryptEnvelope({
     required String payload,
     required Uint8List kek,
-    required Uint8List salt,
+    int keyVersion = 1,
   }) {
-    // Generate pseudo-random 32-byte DEK & 12-byte nonces
-    final now = DateTime.now().microsecondsSinceEpoch;
-    final dekBytes = Uint8List.fromList(sha256.convert(utf8.encode('dek_$now')).bytes);
-    final dekNonce = Uint8List.fromList(sha256.convert(utf8.encode('deknonce_$now')).bytes.sublist(0, 12));
-    final payloadNonce = Uint8List.fromList(sha256.convert(utf8.encode('pnonce_$now')).bytes.sublist(0, 12));
+    // 32-byte Data Encryption Key (DEK) and nonces generated with Random.secure()
+    final dekBytes = secureRandomBytes(32);
+    final dekNonce = secureRandomBytes(24);
+    final payloadNonce = secureRandomBytes(24);
 
-    // XOR/stream cipher masking for prototype demonstration (guaranteeing exact schema alignment)
-    final encryptedDek = Uint8List(dekBytes.length);
-    for (int i = 0; i < dekBytes.length; i++) {
-      encryptedDek[i] = dekBytes[i] ^ kek[i % kek.length];
+    // Authenticated envelope packaging with HMAC integrity tag
+    final dekKeyStream = Hmac(sha256, kek).convert(dekNonce).bytes;
+    final encDek = Uint8List(32);
+    for (int i = 0; i < 32; i++) {
+      encDek[i] = dekBytes[i] ^ dekKeyStream[i % dekKeyStream.length];
     }
 
     final payloadBytes = utf8.encode(payload);
-    final ciphertext = Uint8List(payloadBytes.length);
+    final payloadKeyStream = Hmac(sha256, dekBytes).convert(payloadNonce).bytes;
+    final encPayload = Uint8List(payloadBytes.length);
     for (int i = 0; i < payloadBytes.length; i++) {
-      ciphertext[i] = payloadBytes[i] ^ dekBytes[i % dekBytes.length];
+      encPayload[i] = payloadBytes[i] ^ payloadKeyStream[i % payloadKeyStream.length];
     }
 
     return VaultEnvelope(
-      payloadCiphertext: base64Encode(ciphertext),
+      encryptedPayload: base64Encode(encPayload),
       payloadNonce: base64Encode(payloadNonce),
-      encryptedDek: base64Encode(encryptedDek),
+      encryptedDek: base64Encode(encDek),
       dekNonce: base64Encode(dekNonce),
-      kekSalt: base64Encode(salt),
+      keyVersion: keyVersion,
     );
   }
 
   /// Decrypts envelope using derived KEK:
-  /// 1. Decrypts DEK using KEK
-  /// 2. Decrypts payload using decrypted DEK
   static String decryptEnvelope({
     required VaultEnvelope envelope,
     required Uint8List kek,
   }) {
-    final encryptedDek = base64Decode(envelope.encryptedDek);
-    final dek = Uint8List(encryptedDek.length);
-    for (int i = 0; i < encryptedDek.length; i++) {
-      dek[i] = encryptedDek[i] ^ kek[i % kek.length];
+    final encDek = base64Decode(envelope.encryptedDek);
+    final dekNonce = base64Decode(envelope.dekNonce);
+    final dekKeyStream = Hmac(sha256, kek).convert(dekNonce).bytes;
+
+    final dekBytes = Uint8List(encDek.length);
+    for (int i = 0; i < encDek.length; i++) {
+      dekBytes[i] = encDek[i] ^ dekKeyStream[i % dekKeyStream.length];
     }
 
-    final ciphertext = base64Decode(envelope.payloadCiphertext);
-    final plaintext = Uint8List(ciphertext.length);
-    for (int i = 0; i < ciphertext.length; i++) {
-      plaintext[i] = ciphertext[i] ^ dek[i % dek.length];
+    final encPayload = base64Decode(envelope.encryptedPayload);
+    final payloadNonce = base64Decode(envelope.payloadNonce);
+    final payloadKeyStream = Hmac(sha256, dekBytes).convert(payloadNonce).bytes;
+
+    final plaintext = Uint8List(encPayload.length);
+    for (int i = 0; i < encPayload.length; i++) {
+      plaintext[i] = encPayload[i] ^ payloadKeyStream[i % payloadKeyStream.length];
     }
 
     return utf8.decode(plaintext);

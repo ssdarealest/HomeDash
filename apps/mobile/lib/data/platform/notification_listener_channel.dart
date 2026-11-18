@@ -33,7 +33,18 @@ class NotificationListenerChannel {
       StreamController<ParsedBankNotification>.broadcast();
 
   Stream<ParsedBankNotification> get notificationStream {
-    return _mockStreamController.stream;
+    // Merge real Android EventChannel broadcast stream with simulator mock stream
+    try {
+      final nativeStream = _eventChannel.receiveBroadcastStream()
+          .map((event) => parseTransactionPayload(event.toString()))
+          .where((p) => p != null)
+          .cast<ParsedBankNotification>();
+
+      return StreamGroup.merge([nativeStream, _mockStreamController.stream]);
+    } catch (_) {
+      // In simulator or non-Android environment, return mock stream
+      return _mockStreamController.stream;
+    }
   }
 
   /// Parses incoming notification body text for bank/card transaction patterns:
@@ -78,7 +89,6 @@ class NotificationListenerChannel {
       final bool result = await _channel.invokeMethod('isPermissionGranted');
       return result;
     } catch (_) {
-      // In simulator / non-Android environment, return mock true
       return true;
     }
   }
@@ -93,5 +103,16 @@ class NotificationListenerChannel {
 
   void dispose() {
     _mockStreamController.close();
+  }
+}
+
+// Minimal stream group merger for pure Dart
+class StreamGroup {
+  static Stream<T> merge<T>(List<Stream<T>> streams) {
+    final controller = StreamController<T>.broadcast();
+    for (final s in streams) {
+      s.listen(controller.add, onError: controller.addError);
+    }
+    return controller.stream;
   }
 }

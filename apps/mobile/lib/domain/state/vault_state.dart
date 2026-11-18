@@ -12,7 +12,7 @@ class VaultState extends ChangeNotifier {
   Future<bool> unlock(String passphrase, {Uint8List? salt}) async {
     try {
       final s = salt ?? Uint8List.fromList(utf8.encode('homedash_vault_salt_constant'));
-      _activeKek = VaultCrypto.deriveKek(passphrase, s, iterations: 1000);
+      _activeKek = VaultCrypto.deriveKek(passphrase, s, iterations: 100000);
       _isUnlocked = true;
       notifyListeners();
       return true;
@@ -37,11 +37,10 @@ class VaultState extends ChangeNotifier {
     return VaultCrypto.decryptEnvelope(envelope: envelope, kek: _activeKek!);
   }
 
-  VaultEnvelope encryptItem(String plaintext, {Uint8List? salt}) {
+  VaultEnvelope encryptItem(String plaintext, {int keyVersion = 1}) {
     if (!_isUnlocked || _activeKek == null) {
       throw StateError('Vault is locked. Cannot encrypt items without unlocking.');
     }
-    final s = salt ?? Uint8List.fromList(utf8.encode('homedash_vault_salt_constant'));
-    return VaultCrypto.encryptEnvelope(payload: plaintext, kek: _activeKek!, salt: s);
+    return VaultCrypto.encryptEnvelope(payload: plaintext, kek: _activeKek!, keyVersion: keyVersion);
   }
 }

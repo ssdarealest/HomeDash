@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-// Canonical Local Tables Mirroring packages/client-schema/src/schema.sql
+// Canonical Local Tables Strictly Mirroring packages/client-schema/src/schema.sql
 
 class LocalHouseholds extends Table {
   TextColumn get id => text()();
@@ -27,120 +27,16 @@ class LocalUsers extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-class LocalChores extends Table {
-  TextColumn get id => text()();
-  TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get title => text()();
-  TextColumn get description => text().nullable()();
-  TextColumn get assignedTo => text().nullable().references(LocalUsers, #id)();
-  IntColumn get tokenReward => integer().withDefault(const Constant(0))();
-  TextColumn get recurrence => text().withDefault(const Constant('daily'))();
-  TextColumn get status => text().withDefault(const Constant('pending'))();
-  TextColumn get hlcTimestamp => text()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get createdAt => dateTime()();
-  DateTimeColumn get updatedAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-class LocalMedications extends Table {
-  TextColumn get id => text()();
-  TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get memberId => text().references(LocalUsers, #id)();
-  TextColumn get name => text()();
-  TextColumn get dosage => text()();
-  TextColumn get instructions => text().nullable()();
-  TextColumn get scheduleTimes => text()(); // JSON string
-  IntColumn get pillCount => integer().withDefault(const Constant(0))();
-  IntColumn get lowStockThreshold => integer().withDefault(const Constant(5))();
-  TextColumn get hlcTimestamp => text()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get createdAt => dateTime()();
-  DateTimeColumn get updatedAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-class LocalMedicationLogs extends Table {
-  TextColumn get id => text()();
-  TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get medicationId => text().references(LocalMedications, #id)();
-  TextColumn get recordedBy => text().references(LocalUsers, #id)();
-  DateTimeColumn get takenAt => dateTime()();
-  TextColumn get status => text().withDefault(const Constant('taken'))();
-  TextColumn get photoProofPath => text().nullable()();
-  TextColumn get notes => text().nullable()();
-  TextColumn get hlcTimestamp => text()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get createdAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-class LocalCaregiverShifts extends Table {
-  TextColumn get id => text()();
-  TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get caregiverId => text().references(LocalUsers, #id)();
-  DateTimeColumn get startTime => dateTime()();
-  DateTimeColumn get endTime => dateTime()();
-  TextColumn get shiftNotes => text().nullable()();
-  TextColumn get handoffNotes => text().nullable()();
-  TextColumn get status => text().withDefault(const Constant('scheduled'))();
-  TextColumn get hlcTimestamp => text()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get createdAt => dateTime()();
-  DateTimeColumn get updatedAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-class LocalVitalsLogs extends Table {
-  TextColumn get id => text()();
-  TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get memberId => text().references(LocalUsers, #id)();
-  TextColumn get recordedBy => text().references(LocalUsers, #id)();
-  TextColumn get vitalType => text()();
-  RealColumn get metricValue => real()();
-  TextColumn get metricUnit => text()();
-  TextColumn get secondaryValue => text().nullable()();
-  TextColumn get hlcTimestamp => text()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get recordedAt => dateTime()();
-  DateTimeColumn get createdAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-class LocalMedicalAllergies extends Table {
-  TextColumn get id => text()();
-  TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get memberId => text().references(LocalUsers, #id)();
-  TextColumn get allergen => text()();
-  TextColumn get severity => text().withDefault(const Constant('moderate'))();
-  TextColumn get reactionDetails => text().nullable()();
-  TextColumn get emergencyProtocol => text().nullable()();
-  TextColumn get hlcTimestamp => text()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get createdAt => dateTime()();
-  DateTimeColumn get updatedAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
 class LocalFinanceAccounts extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get accountName => text()();
-  TextColumn get accountType => text().withDefault(const Constant('checking'))();
+  TextColumn get name => text()();
+  TextColumn get accountType => text().withDefault(const Constant('shared_checking'))();
   IntColumn get balanceCents => integer().withDefault(const Constant(0))();
   TextColumn get currency => text().withDefault(const Constant('USD'))();
+  TextColumn get ownerMemberId => text().nullable().references(LocalUsers, #id)();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -154,30 +50,140 @@ class LocalFinanceTransactions extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
   TextColumn get accountId => text().references(LocalFinanceAccounts, #id)();
-  TextColumn get loggedBy => text().references(LocalUsers, #id)();
   IntColumn get amountCents => integer()();
+  TextColumn get transactionType => text()();
   TextColumn get category => text()();
   TextColumn get description => text().nullable()();
   DateTimeColumn get transactionDate => dateTime()();
+  TextColumn get source => text().withDefault(const Constant('manual'))();
   TextColumn get receiptUrl => text().nullable()();
+  TextColumn get createdByMemberId => text().nullable().references(LocalUsers, #id)();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
 }
 
-class LocalVaultItems extends Table {
+class LocalUtilityBills extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get category => text().withDefault(const Constant('general'))();
-  TextColumn get titleHint => text()();
-  TextColumn get payloadCiphertext => text()();
-  TextColumn get payloadNonce => text()();
-  TextColumn get encryptedDek => text()();
-  TextColumn get dekNonce => text()();
-  TextColumn get kekSalt => text()();
+  TextColumn get providerName => text()();
+  TextColumn get billType => text()();
+  DateTimeColumn get billingPeriodStart => dateTime().nullable()();
+  DateTimeColumn get billingPeriodEnd => dateTime().nullable()();
+  IntColumn get amountCents => integer()();
+  DateTimeColumn get dueDate => dateTime()();
+  TextColumn get status => text().withDefault(const Constant('detected'))();
+  TextColumn get rawInvoiceUrl => text().nullable()();
+  TextColumn get ocrMetadata => text().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
+  TextColumn get hlcTimestamp => text()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalMedications extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text().references(LocalHouseholds, #id)();
+  TextColumn get patientMemberId => text().references(LocalUsers, #id)();
+  TextColumn get name => text()();
+  TextColumn get dosage => text()();
+  TextColumn get instructions => text().nullable()();
+  TextColumn get scheduleCron => text()();
+  IntColumn get remainingPills => integer().withDefault(const Constant(0))();
+  IntColumn get refillThreshold => integer().withDefault(const Constant(5))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
+  TextColumn get hlcTimestamp => text()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalMedicationLogs extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text().references(LocalHouseholds, #id)();
+  TextColumn get medicationId => text().references(LocalMedications, #id)();
+  DateTimeColumn get scheduledAt => dateTime()();
+  DateTimeColumn get takenAt => dateTime().nullable()();
+  TextColumn get status => text().withDefault(const Constant('taken'))();
+  TextColumn get photoProofPath => text().nullable()();
+  TextColumn get recordedByMemberId => text().nullable().references(LocalUsers, #id)();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
+  TextColumn get hlcTimestamp => text()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalCaregiverShifts extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text().references(LocalHouseholds, #id)();
+  TextColumn get patientMemberId => text().references(LocalUsers, #id)();
+  TextColumn get assignedMemberId => text().references(LocalUsers, #id)();
+  DateTimeColumn get startTime => dateTime()();
+  DateTimeColumn get endTime => dateTime()();
+  TextColumn get status => text().withDefault(const Constant('scheduled'))();
+  TextColumn get notes => text().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
+  TextColumn get hlcTimestamp => text()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalVitalsLogs extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text().references(LocalHouseholds, #id)();
+  TextColumn get memberId => text().references(LocalUsers, #id)();
+  TextColumn get vitalType => text()();
+  RealColumn get valuePrimary => real()();
+  RealColumn get valueSecondary => real().nullable()();
+  TextColumn get unit => text()();
+  DateTimeColumn get recordedAt => dateTime()();
+  TextColumn get notes => text().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
+  TextColumn get hlcTimestamp => text()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalMedicalAllergies extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text().references(LocalHouseholds, #id)();
+  TextColumn get memberId => text().references(LocalUsers, #id)();
+  TextColumn get allergen => text()();
+  TextColumn get severity => text().withDefault(const Constant('critical'))();
+  TextColumn get reactionDescription => text().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -190,11 +196,14 @@ class LocalVaultItems extends Table {
 class LocalGroceryItems extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get item => text()();
-  IntColumn get quantity => integer().withDefault(const Constant(1))();
-  TextColumn get category => text().nullable()();
+  TextColumn get name => text()();
+  TextColumn get quantity => text().withDefault(const Constant('1'))();
+  TextColumn get aisleCategory => text().withDefault(const Constant('pantry'))();
   BoolColumn get isChecked => boolean().withDefault(const Constant(false))();
-  TextColumn get addedBy => text().nullable().references(LocalUsers, #id)();
+  TextColumn get checkedByMemberId => text().nullable().references(LocalUsers, #id)();
+  DateTimeColumn get checkedAt => dateTime().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -207,10 +216,33 @@ class LocalGroceryItems extends Table {
 class LocalMealPlans extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  DateTimeColumn get day => dateTime()();
+  DateTimeColumn get plannedDate => dateTime()();
   TextColumn get mealType => text()();
-  TextColumn get recipeName => text()();
+  TextColumn get recipeTitle => text()();
   TextColumn get notes => text().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
+  TextColumn get hlcTimestamp => text()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalChores extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text().references(LocalHouseholds, #id)();
+  TextColumn get title => text()();
+  TextColumn get assignedMemberId => text().nullable().references(LocalUsers, #id)();
+  TextColumn get recurrenceRule => text().nullable()();
+  IntColumn get rewardPoints => integer().withDefault(const Constant(0))();
+  IntColumn get allowanceCents => integer().withDefault(const Constant(0))();
+  BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
+  BoolColumn get verifiedByAdmin => boolean().withDefault(const Constant(false))();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -225,7 +257,10 @@ class LocalHomeWikiCards extends Table {
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
   TextColumn get title => text()();
   TextColumn get category => text()();
-  TextColumn get content => text()();
+  TextColumn get contentMarkdown => text()();
+  TextColumn get metadata => text().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -235,14 +270,19 @@ class LocalHomeWikiCards extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-class LocalUtilityBills extends Table {
+class LocalVaultItems extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
-  TextColumn get billName => text()();
-  TextColumn get provider => text()();
-  IntColumn get amountCents => integer()();
-  DateTimeColumn get dueDate => dateTime()();
-  BoolColumn get isPaid => boolean().withDefault(const Constant(false))();
+  TextColumn get title => text()();
+  TextColumn get category => text()();
+  TextColumn get encryptedPayload => text()();
+  TextColumn get payloadNonce => text()();
+  TextColumn get encryptedDek => text()();
+  TextColumn get dekNonce => text()();
+  IntColumn get keyVersion => integer().withDefault(const Constant(1))();
+  TextColumn get createdByMemberId => text().nullable().references(LocalUsers, #id)();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -256,9 +296,11 @@ class LocalAssetRenewals extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text().references(LocalHouseholds, #id)();
   TextColumn get assetName => text()();
-  TextColumn get assetType => text()();
   DateTimeColumn get renewalDate => dateTime()();
-  IntColumn get costCents => integer().withDefault(const Constant(0))();
+  IntColumn get notificationLeadDays => integer().withDefault(const Constant(30))();
+  TextColumn get notes => text().nullable()();
+  // Universal Sync Columns
+  IntColumn get syncState => integer().withDefault(const Constant(1))();
   TextColumn get hlcTimestamp => text()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();

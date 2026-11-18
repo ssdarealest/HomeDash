@@ -29,11 +29,11 @@ describe('Drift SQLite Schema Parity with packages/client-schema', () => {
     const tablesPath = path.resolve(__dirname, '../lib/data/database/tables.dart');
     expect(fs.existsSync(tablesPath)).toBe(true);
     const content = fs.readFileSync(tablesPath, 'utf8');
-    expect(content).toContain('payloadCiphertext');
+    expect(content).toContain('encryptedPayload');
     expect(content).toContain('payloadNonce');
     expect(content).toContain('encryptedDek');
     expect(content).toContain('dekNonce');
-    expect(content).toContain('kekSalt');
+    expect(content).toContain('keyVersion');
   });
 
   it('should implement OutboxDao with pending mutation queries', () => {

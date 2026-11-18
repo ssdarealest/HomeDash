@@ -19,8 +19,10 @@ class SyncCoordinator {
   final RemoteChangeHandler applyRemoteChange;
 
   bool _isSyncing = false;
+  bool _isDisposed = false;
   int _lastServerCursor = 0;
   StreamSubscription? _sseSubscription;
+  http.Client? _sseClient;
 
   SyncCoordinator({
     required this.client,
@@ -33,12 +35,13 @@ class SyncCoordinator {
   });
 
   bool get isSyncing => _isSyncing;
+  bool get isDisposed => _isDisposed;
   int get lastCursor => _lastServerCursor;
 
   /// Trigger full sync cycle: flush local outbox first, then pull remote deltas.
   /// Concurrency mutex guarantees only one sync runs at any time.
   Future<void> triggerSync() async {
-    if (_isSyncing) return;
+    if (_isSyncing || _isDisposed) return;
     _isSyncing = true;
 
     try {
@@ -62,7 +65,7 @@ class SyncCoordinator {
 
       // Step 2: Pull remote changes since last cursor
       bool hasMore = true;
-      while (hasMore) {
+      while (hasMore && !_isDisposed) {
         final pullRes = await client.pull(
           householdId: householdId,
           cursor: _lastServerCursor,
@@ -75,6 +78,7 @@ class SyncCoordinator {
         }
 
         for (final change in pullRes.changes) {
+          if (_isDisposed) break;
           await applyRemoteChange(change);
         }
 
@@ -88,7 +92,10 @@ class SyncCoordinator {
 
   /// Listens to SSE realtime event stream for instant invalidation triggers
   void startRealtimeListener() {
+    if (_isDisposed) return;
+
     _sseSubscription?.cancel();
+    _sseClient?.close();
 
     final sseUrl = Uri.parse('${client.baseUrl}/sync/realtime');
     final request = http.Request('GET', sseUrl);
@@ -99,20 +106,25 @@ class SyncCoordinator {
     });
 
     final sseClient = http.Client();
-    final streamFuture = sseClient.send(request);
+    _sseClient = sseClient;
 
-    streamFuture.then((response) {
+    sseClient.send(request).then((response) {
+      if (_isDisposed) {
+        sseClient.close();
+        return;
+      }
+
       if (response.statusCode == 200) {
         _sseSubscription = response.stream
             .transform(utf8.decoder)
             .transform(const LineSplitter())
             .listen((line) {
+          if (_isDisposed) return;
           if (line.startsWith('event: sync:invalidate') || line.contains('sync:invalidate')) {
-            // Server notified data change -> trigger background sync
             triggerSync();
           }
         }, onError: (err) {
-          // Reconnect with backoff in production
+          // Reconnect with backoff
         });
       }
     }).catchError((err) {
@@ -121,7 +133,10 @@ class SyncCoordinator {
   }
 
   void dispose() {
+    _isDisposed = true;
     _sseSubscription?.cancel();
     _sseSubscription = null;
+    _sseClient?.close();
+    _sseClient = null;
   }
 }
