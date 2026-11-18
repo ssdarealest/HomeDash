@@ -229,8 +229,8 @@ BEGIN
 
     INSERT INTO sync_changes (
         household_id,
-        table_name,
-        record_id,
+        entity_table,
+        entity_id,
         hlc_timestamp,
         operation,
         record_payload

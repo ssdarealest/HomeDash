@@ -4,6 +4,7 @@ import {
   SyncPushRequestSchema,
   SyncPushResponseSchema,
   SyncPullRequestSchema,
+  SyncPullResponseSchema,
 } from './sync';
 import {
   VaultItemSchema,
@@ -18,6 +19,7 @@ export const OpenApiHouseholdMember = HouseholdMemberSchema.openapi('HouseholdMe
 export const OpenApiSyncPushRequest = SyncPushRequestSchema.openapi('SyncPushRequest');
 export const OpenApiSyncPushResponse = SyncPushResponseSchema.openapi('SyncPushResponse');
 export const OpenApiSyncPullRequest = SyncPullRequestSchema.openapi('SyncPullRequest');
+export const OpenApiSyncPullResponse = SyncPullResponseSchema.openapi('SyncPullResponse');
 export const OpenApiVaultItem = VaultItemSchema.openapi('VaultItem');
 export const OpenApiVaultItemCreate = VaultItemCreateSchema.openapi('VaultItemCreate');
 export const OpenApiBreakGlassInitiate = BreakGlassInitiateSchema.openapi('BreakGlassInitiate');
@@ -75,7 +77,7 @@ export function createOpenAPIDocument(): Record<string, any> {
         },
       },
     }),
-    (c) => c.json({ appliedCount: 0, newHighwaterMark: 0, serverTimestamp: new Date().toISOString() })
+    (c) => c.json({ appliedCount: 0, newHighwaterMark: 0, serverTimestamp: new Date().toISOString(), serverHlc: '0000-00-00T00:00:00.000Z:0000:server' })
   );
 
   // Sync pull route
@@ -98,16 +100,13 @@ export function createOpenAPIDocument(): Record<string, any> {
           description: 'Sync changes delta',
           content: {
             'application/json': {
-              schema: z.object({
-                changes: z.array(z.any()),
-                nextCursor: z.number().int(),
-              }).openapi('SyncPullResponse'),
+              schema: OpenApiSyncPullResponse,
             },
           },
         },
       },
     }),
-    (c) => c.json({ changes: [], nextCursor: 0 })
+    (c) => c.json({ changes: [], newCursor: 0, hasMore: false, serverHlc: '0000-00-00T00:00:00.000Z:0000:server' })
   );
 
   // Break-glass initiate route

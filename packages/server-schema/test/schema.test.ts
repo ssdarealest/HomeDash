@@ -97,5 +97,9 @@ describe('PostgreSQL Drizzle Server Schema', () => {
     expect(rlsSql).toContain('CREATE OR REPLACE TRIGGER trg_sync_medications');
     expect(rlsSql).toContain('CREATE OR REPLACE TRIGGER trg_sync_finance_transactions');
     expect(rlsSql).toContain('CREATE OR REPLACE TRIGGER trg_sync_chores');
+
+    // Verify CDC trigger inserts into entity_table and entity_id
+    expect(rlsSql).toContain('entity_table');
+    expect(rlsSql).toContain('entity_id');
   });
 });
