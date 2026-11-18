@@ -61,3 +61,7 @@ export async function verifySessionJwt(
     return null;
   }
 }
+
+export const signSessionToken = signSessionJwt;
+export const verifySessionToken = verifySessionJwt;
+
