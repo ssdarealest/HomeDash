@@ -44,7 +44,7 @@ HomeDash is engineered as a strictly stratified 6-tier monorepo using **pnpm wor
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Tier 3: Client Sync Engine (Planned Phase 3)           │
+│ Tier 3: Client Sync Engine                             │
 │ packages/sync-engine (HLC, Outbox, SQLite Reconciler)  │
 └───────────────────────────┬────────────────────────────┘
                             │
@@ -200,10 +200,15 @@ pnpm turbo run test typecheck
   - HLC-based conflict resolution reconciler with LWW tie-breaking
   - Outbox transaction pipeline with CDC log streaming
   - Server SSE invalidation stream and Valkey pub/sub fanout
-- [ ] **Phase 4: Flutter Cross-Platform Client Application**
-  - Reactive local-first state layer (Drift SQLite)
-  - Adaptive role-tailored multi-generational UI screens
-  - Offline sync daemon & optimistic UI updates
+- [x] **Phase 4: Flutter Cross-Platform Client Application**
+  - Flutter cross-platform mobile client (`apps/mobile`) with Material 3 & Senior Mode tokens (1.4x scale, >=48dp touch targets)
+  - Reactive Drift SQLite local database with collaborative tables, integer sync states, and DAOs
+  - Client-side Hybrid Logical Clock (HLC) and deterministic conflict reconciler
+  - Exponential-backoff SSE real-time sync coordinator with socket lifecycle protection
+  - Client-side Zero-Knowledge AES-256-GCM / XChaCha20-Poly1305 envelope encryption & PBKDF2
+  - Multi-role session management strictly quarantining Caregiver Guests from `/finance` and `/vault` (navigation and dashboard)
+  - Glanceable spatial Bento dashboard, one-handed quick-log sheets, and Senior Mode 2-tab SOS emergency view
+  - Android Companion Notification Listener platform channel (Kotlin EventChannel/MethodChannel)
 - [ ] **Phase 5: Core Functional Modules**
   - Daily Ops (Chores, Grocery, Shared Calendar, Announcements)
   - Family Health (Medication log, Pediatric growth, Allergy alerts)
