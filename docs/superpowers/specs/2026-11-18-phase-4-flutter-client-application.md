@@ -169,17 +169,20 @@ apps/mobile/
   2. **Emergency**: Dedicated 1-tap call button, break-glass allergy/medical condition card, and address locator.
 - Eliminates gesture-only shortcuts (swipes, long-presses) in favor of clearly labeled touch targets with text labels.
 
-### 5.2 Local-First SQLite Database (Drift)
+### 5.2 Local-First SQLite Database (Drift) & Schema Parity
 
-The mobile client maintains a fully functional local SQLite database using Drift:
-- **Mirror of `@homedash/client-schema`**:
-  - `households`, `users`
-  - `chores`, `chore_completions`
-  - `finance_accounts`, `finance_transactions`
-  - `medications`, `medication_logs`
-  - `caregiver_shifts`, `vitals_logs`, `medical_allergies`
-  - `calendar_events`, `grocery_items`, `vault_items`
-  - `outbox_mutations` (pending push mutations)
+The mobile client maintains a fully functional local SQLite database using Drift that **strictly mirrors `packages/client-schema/src/schema.sql`**:
+- **Table Names & Columns**: Tables use the canonical `local_` prefix:
+  - `local_households`, `local_users` (client cache and profile store)
+  - `local_grocery_items`, `local_meal_plans`
+  - `local_chores`, `local_home_wiki_cards`
+  - `local_medications`, `local_medication_logs`
+  - `local_caregiver_shifts`, `local_vitals_logs`, `local_medical_allergies`
+  - `local_finance_accounts`, `local_finance_transactions`, `local_utility_bills`
+  - `local_vault_items` (with `payload_ciphertext`, `payload_nonce`, `encrypted_dek`, `dek_nonce`, `kek_salt`)
+  - `local_asset_renewals`
+  - `outbox_mutations` (tracks pending sync operations: `id`, `household_id`, `client_id`, `entity_table`, `entity_id`, `operation`, `record_payload`, `hlc_timestamp`, `retry_count`, `created_at`)
+- **Sync Whitelist Parity**: Only the 13 canonical collaborative tables participate in synchronization (`local_users` and `local_households` are managed locally).
 - **Reactive Stream Architecture**: UI components bind directly to `watch()` streams on DAOs, ensuring immediate UI responsiveness upon local writes without waiting for network acknowledgment.
 
 ### 5.3 Dart Hybrid Logical Clock & Sync Client
@@ -192,9 +195,9 @@ The mobile client maintains a fully functional local SQLite database using Drift
 
 #### Sync Coordinator Lifecycle
 1. **Local Mutation**: User performs an action (e.g., checks off medication) -> Record is written to local SQLite -> Mutation record added to `outbox_mutations` with client HLC.
-2. **Background Push**: `SyncCoordinator` gathers pending outbox records -> Sends `POST /sync/push` -> On HTTP 200, marks outbox items as synced or deletes them.
-3. **Background Pull**: Sends `POST /sync/pull` with `sinceHlc` -> Server returns delta changes -> Reconciler applies LWW updates into local SQLite tables.
-4. **Real-Time Invalidation**: Listens to server SSE stream (`GET /sync/realtime`). When a `sync_invalidation` event arrives for the household, triggers an immediate background pull.
+2. **Background Push**: `SyncCoordinator` gathers pending outbox records -> Sends `POST /sync/push` with `{ householdId, clientId, mutations }` -> On HTTP 200, marks outbox items as synced or deletes them.
+3. **Background Pull**: Sends `POST /sync/pull` with `{ householdId, cursor, limit }` -> Server returns delta changes -> Reconciler applies LWW updates into local SQLite tables.
+4. **Real-Time Invalidation**: Listens to server SSE stream (`GET /sync/realtime`). When a `sync:invalidate` event arrives for the household, triggers an immediate background pull.
 
 ### 5.4 Ergonomic Quick-Log Bottom Sheets
 
@@ -221,15 +224,28 @@ Designed for 1-handed operation on mobile devices:
 
 ### 5.6 Client-Side Zero-Knowledge Vault
 
-- Master household encryption key is derived client-side from the user's master passphrase using PBKDF2-HMAC-SHA256 (or Argon2).
-- Vault records are stored locally in `vault_items` as encrypted ciphertexts (`encrypted_payload` and `iv`).
+- Conforms strictly to `@homedash/crypto` and `packages/client-schema`:
+  - Table: `local_vault_items` with fields `payload_ciphertext`, `payload_nonce`, `encrypted_dek`, `dek_nonce`, `kek_salt`.
+  - Key Derivation: Derives KEK from master passphrase + salt using PBKDF2/Argon2.
+  - Two-Tier Envelope Decryption: Decrypts DEK using KEK, then decrypts payload ciphertext using DEK.
+- Vault records are stored locally in `local_vault_items` exclusively as encrypted ciphertexts.
 - The application decrypts vault payloads on the fly into memory only when the user enters their vault passphrase or biometrics.
 - Plaintext keys or decrypted documents are never transmitted over the network or saved in unencrypted local tables.
 
-### 5.7 Android Notification Listener Platform Channel
+### 5.7 User Authentication & Multi-Role Switching
+
+- **Role Profiles**: `admin`, `senior`, `teen_child`, `caregiver_guest`.
+- **Session Management**:
+  - Caregiver Guest: Deep-link ingestion of time-bound magic links via `POST /auth/caregiver/verify`.
+  - Household Members (Admin, Senior, Teen, Child): Profile switcher with persistent local auth credentials and simulated/issued JWT sessions, enabling multi-generational role testing across all dashboard modes.
+  - Role-based UI visibility: Dynamically hides `/finance` and `/vault` tabs when the active profile is `caregiver_guest`.
+
+### 5.8 Android Notification Listener Platform Channel
 
 - Defines a `MethodChannel` / `EventChannel` (`com.homedash.app/notification_listener`).
-- Listens for bank and payment notification events pushed by the native Android `NotificationListenerService`.
+- Includes:
+  1. Native Android Kotlin implementation stub (`NotificationListenerServiceImpl.kt`) for deployment on physical devices.
+  2. Dart mock event stream emitter for headless testing and developer simulator staging.
 - Parses incoming SMS/push payloads for transaction amounts, dates, and merchant names, presenting them in an "Uncategorized Transactions" staging queue for user approval.
 
 ---
