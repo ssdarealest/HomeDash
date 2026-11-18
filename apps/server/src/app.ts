@@ -9,24 +9,38 @@ import {
   authMiddleware,
   requireRole,
   blockCaregiverFromSensitiveModules,
+  SyncService,
+  SyncPubSub,
+  InMemorySyncJournalStore,
 } from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
+import { createSyncRouter } from './routes/sync';
+import { createRealtimeRouter } from './routes/realtime';
 
 export interface AppOptions {
   jwtSecret?: string;
   magicLinkSecret?: string;
   rpId?: string;
+  syncService?: SyncService;
+  pubsub?: SyncPubSub;
 }
 
 export function createApp(opts?: AppOptions) {
   const app = new Hono();
-  const jwtSecret = opts?.jwtSecret || process.env.JWT_SECRET || 'homedash_fallback_development_secret_key_32_bytes!';
+  const jwtSecret = opts?.jwtSecret || process.env.JWT_SECRET || 'thang_developer_rat_dep_trai!';
+  const pubsub = opts?.pubsub || new SyncPubSub();
+  const syncService =
+    opts?.syncService ||
+    new SyncService({
+      journalStore: new InMemorySyncJournalStore(),
+      pubsub,
+    });
 
   // Enable CORS
   app.use('*', cors());
 
   // Block caregivers from financial ledgers and zero-knowledge vault globally
-  app.use('*', blockCaregiverFromSensitiveModules());
+  app.use('*', blockCaregiverFromSensitiveModules(jwtSecret));
 
   // Health check
   app.get('/health', (c) => {
@@ -49,6 +63,22 @@ export function createApp(opts?: AppOptions) {
     rpId: opts?.rpId,
   });
   app.route('/api/v1/auth', authRouter);
+
+  // Mount Sync Router under /api/v1/sync and /sync
+  const syncRouter = createSyncRouter({
+    syncService,
+    jwtSecret,
+  });
+  app.route('/api/v1/sync', syncRouter);
+  app.route('/sync', syncRouter);
+
+  // Mount Realtime Router under /api/v1/realtime and /realtime
+  const realtimeRouter = createRealtimeRouter({
+    pubsub,
+    jwtSecret,
+  });
+  app.route('/api/v1/realtime', realtimeRouter);
+  app.route('/realtime', realtimeRouter);
 
   // Vault break-glass initiation with auth and validation
   app.post(

@@ -96,8 +96,21 @@ CREATE POLICY household_tenant_isolation ON chores
     USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
 
 CREATE POLICY household_tenant_isolation ON sync_changes
-    FOR SELECT
-    USING (household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID);
+    FOR ALL
+    USING (
+        household_id = NULLIF(current_setting('app.current_household_id', true), '')::UUID
+        AND (
+            current_setting('app.current_user_role', true) = 'admin'
+            OR (
+                current_setting('app.current_user_role', true) != 'caregiver_guest'
+                AND entity_table != 'vault_items'
+            )
+            OR (
+                current_setting('app.current_user_role', true) = 'caregiver_guest'
+                AND entity_table NOT IN ('finance_accounts', 'finance_transactions', 'utility_bills', 'vault_items')
+            )
+        )
+    );
 
 CREATE POLICY household_tenant_isolation ON audit_logs
     FOR SELECT
@@ -206,12 +219,12 @@ DECLARE
 BEGIN
     IF (TG_OP = 'DELETE') THEN
         target_household_id := OLD.household_id;
-        target_hlc := to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+        target_hlc := to_char(clock_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') || '_00000000_postgres';
         op := 'DELETE';
         payload := NULL;
     ELSIF (TG_OP = 'UPDATE') THEN
         target_household_id := NEW.household_id;
-        target_hlc := to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+        target_hlc := to_char(clock_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') || '_00000000_postgres';
         IF NEW.deleted_at IS NOT NULL AND (OLD.deleted_at IS NULL OR OLD.deleted_at <> NEW.deleted_at) THEN
             -- Soft delete tombstone captured as DELETE operation with NULL payload
             op := 'DELETE';
@@ -222,15 +235,15 @@ BEGIN
         END IF;
     ELSIF (TG_OP = 'INSERT') THEN
         target_household_id := NEW.household_id;
-        target_hlc := to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+        target_hlc := to_char(clock_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') || '_00000000_postgres';
         op := 'INSERT';
         payload := to_jsonb(NEW);
     END IF;
 
     INSERT INTO sync_changes (
         household_id,
-        table_name,
-        record_id,
+        entity_table,
+        entity_id,
         hlc_timestamp,
         operation,
         record_payload
