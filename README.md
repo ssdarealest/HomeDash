@@ -196,10 +196,10 @@ pnpm turbo run test typecheck
   - Web Crypto JWT sessions & time-bound Caregiver Magic Links
   - RBAC & RLS context middlewares with sensitive route isolation
   - Web Crypto AWS SigV4 S3 storage adapter & Valkey cache client
-- [ ] **Phase 3: Bidirectional Sync Engine & Realtime WebSockets**
-  - HLC-based conflict resolution reconciler
+- [x] **Phase 3: Bidirectional Sync Engine & Real-Time Protocol**
+  - HLC-based conflict resolution reconciler with LWW tie-breaking
   - Outbox transaction pipeline with CDC log streaming
-  - Realtime WebSocket fanout and offline resync protocol
+  - Server SSE invalidation stream and Valkey pub/sub fanout
 - [ ] **Phase 4: Flutter Cross-Platform Client Application**
   - Reactive local-first state layer (Drift SQLite)
   - Adaptive role-tailored multi-generational UI screens
