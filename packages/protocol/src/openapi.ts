@@ -77,7 +77,7 @@ export function createOpenAPIDocument(): Record<string, any> {
         },
       },
     }),
-    (c) => c.json({ appliedCount: 0, newHighwaterMark: 0, serverTimestamp: new Date().toISOString(), serverHlc: '0000-00-00T00:00:00.000Z:0000:server' })
+    (c) => c.json({ appliedCount: 0, newHighwaterMark: 0, serverTimestamp: new Date().toISOString(), serverHlc: '1970-01-01T00:00:00.000Z_00000000_server' })
   );
 
   // Sync pull route
@@ -106,7 +106,7 @@ export function createOpenAPIDocument(): Record<string, any> {
         },
       },
     }),
-    (c) => c.json({ changes: [], newCursor: 0, hasMore: false, serverHlc: '0000-00-00T00:00:00.000Z:0000:server' })
+    (c) => c.json({ changes: [], newCursor: 0, hasMore: false, serverHlc: '1970-01-01T00:00:00.000Z_00000000_server' })
   );
 
   // Break-glass initiate route

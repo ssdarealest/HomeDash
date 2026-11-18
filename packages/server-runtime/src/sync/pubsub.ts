@@ -44,9 +44,12 @@ export class SyncPubSub {
     if (handlers) {
       for (const handler of handlers) {
         try {
-          handler(event);
+          const res = handler(event) as any;
+          if (res && typeof res.catch === 'function') {
+            res.catch(() => {});
+          }
         } catch {
-          // Ignore subscriber error
+          // Ignore subscriber synchronous throw
         }
       }
     }

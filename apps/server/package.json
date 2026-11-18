@@ -21,6 +21,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@homedash/sync-engine": "workspace:^",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "@types/node": "catalog:"

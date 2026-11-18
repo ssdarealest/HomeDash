@@ -40,7 +40,7 @@ export function createApp(opts?: AppOptions) {
   app.use('*', cors());
 
   // Block caregivers from financial ledgers and zero-knowledge vault globally
-  app.use('*', blockCaregiverFromSensitiveModules());
+  app.use('*', blockCaregiverFromSensitiveModules(jwtSecret));
 
   // Health check
   app.get('/health', (c) => {

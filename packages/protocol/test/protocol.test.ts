@@ -20,6 +20,7 @@ describe('Shared Protocol & Schema Validation', () => {
   it('should validate Sync Push request payload', () => {
     const validSyncPush = {
       householdId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      clientId: 'device-mobile-1',
       mutations: [
         {
           entityTable: 'grocery_items',

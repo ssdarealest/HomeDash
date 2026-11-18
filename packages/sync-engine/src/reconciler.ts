@@ -65,7 +65,7 @@ export class ConflictReconciler {
         return { millis, counter, nodeId };
       }
     }
-    return { millis: Date.now(), counter: 0, nodeId: 'unknown' };
+    return { millis: 0, counter: 0, nodeId: 'invalid' };
   }
 
   public compareHlc(aRaw: string, bRaw: string): number {

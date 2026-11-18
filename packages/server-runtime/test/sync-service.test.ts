@@ -152,4 +152,83 @@ describe('Tier 4 Server Sync Service', () => {
     expect(pullRes.changes.length).toBe(1);
     expect(pullRes.changes[0].entityTable).toBe('chores');
   });
+
+  it('should allow pushing and pulling canonical health domain tables', async () => {
+    const pushReq: SyncPushRequest = {
+      householdId,
+      clientId: 'mobile_client_1',
+      mutations: [
+        {
+          entityTable: 'medications',
+          entityId: '55eebc99-9c0b-4ef8-bb6d-6bb9bd380a55',
+          operation: 'INSERT',
+          recordPayload: { name: 'Amoxicillin', dosage: '500mg' },
+          hlcTimestamp: new Date().toISOString() + '_00000001_mobile_client_1',
+        },
+      ],
+    };
+
+    const res = await syncService.processPush(householdId, adminUserId, 'admin', pushReq);
+    expect(res.appliedCount).toBe(1);
+  });
+
+  it('should reject mutations with excessive forward clock drift', async () => {
+    const futureTime = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes in the future
+    const pushReq: SyncPushRequest = {
+      householdId,
+      clientId: 'poison_clock_device',
+      mutations: [
+        {
+          entityTable: 'chores',
+          entityId: '66eebc99-9c0b-4ef8-bb6d-6bb9bd380a66',
+          operation: 'INSERT',
+          recordPayload: { title: 'Future chore' },
+          hlcTimestamp: `${futureTime}_00000001_poison_clock_device`,
+        },
+      ],
+    };
+
+    await expect(
+      syncService.processPush(householdId, adminUserId, 'admin', pushReq)
+    ).rejects.toThrow('Client HLC timestamp exceeds maximum allowable forward clock drift');
+  });
+
+  it('should restrict vault_items to admin only for push and pull', async () => {
+    const vaultPushReq: SyncPushRequest = {
+      householdId,
+      clientId: 'teen_device',
+      mutations: [
+        {
+          entityTable: 'vault_items',
+          entityId: '77eebc99-9c0b-4ef8-bb6d-6bb9bd380a77',
+          operation: 'INSERT',
+          recordPayload: { title: 'Passport' },
+          hlcTimestamp: new Date().toISOString() + '_00000001_teen_device',
+        },
+      ],
+    };
+
+    // Non-admin push blocked
+    await expect(
+      syncService.processPush(householdId, 'teen_user_id', 'teen_child', vaultPushReq)
+    ).rejects.toThrow('Only administrators can modify vault items');
+
+    // Non-admin pull strips vault_items
+    await journalStore.recordChange({
+      householdId,
+      entityTable: 'vault_items',
+      entityId: '88eebc99-9c0b-4ef8-bb6d-6bb9bd380a88',
+      operation: 'INSERT',
+      recordPayload: { title: 'Secret deed' },
+      hlcTimestamp: new Date().toISOString() + '_00000001_admin',
+    });
+
+    const pullRes = await syncService.processPull(householdId, 'teen_child', {
+      householdId,
+      cursor: 0,
+      limit: 10,
+    });
+
+    expect(pullRes.changes.some((c) => c.entityTable === 'vault_items')).toBe(false);
+  });
 });

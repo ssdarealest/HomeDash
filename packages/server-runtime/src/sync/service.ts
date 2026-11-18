@@ -13,10 +13,11 @@ export const ALLOWED_SYNC_TABLES = new Set([
   'meal_plans',
   'chores',
   'home_wiki_cards',
-  'health_medications',
-  'health_medication_logs',
-  'health_allergies',
-  'health_growth_records',
+  'medications',
+  'medication_logs',
+  'caregiver_shifts',
+  'vitals_logs',
+  'medical_allergies',
   'finance_accounts',
   'finance_transactions',
   'utility_bills',
@@ -84,7 +85,7 @@ export class InMemorySyncJournalStore implements SyncJournalStore {
   }
 }
 
-export function parseHlcString(raw: string) {
+export function parseHlcString(raw: string): { millis: number; counter: number; nodeId: string } {
   const match = raw.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)[_:]([0-9a-fA-F]+)[_:](.+)$/);
   if (match) {
     const millis = new Date(match[1]).getTime();
@@ -94,7 +95,8 @@ export function parseHlcString(raw: string) {
       return { millis, counter, nodeId };
     }
   }
-  return { millis: Date.now(), counter: 0, nodeId: 'client' };
+  // Deterministic minimum epoch so corrupted/malformed timestamps never win conflict resolution
+  return { millis: 0, counter: 0, nodeId: 'invalid' };
 }
 
 export interface SyncServiceOptions {
@@ -133,12 +135,23 @@ export class SyncService {
       if (userRole === 'caregiver_guest' && SENSITIVE_CAREGIVER_TABLES.has(mutation.entityTable)) {
         throw new Error('Forbidden: Caregivers cannot modify sensitive financial or vault records');
       }
+
+      if (mutation.entityTable === 'vault_items' && userRole !== 'admin') {
+        throw new Error('Forbidden: Only administrators can modify vault items');
+      }
     }
 
+    const MAX_FORWARD_CLOCK_DRIFT_MS = 60_000;
+    const now = Date.now();
     let latestHlc = this.serverClock.getTimestamp();
 
     for (const mutation of request.mutations) {
       const clientHlc = parseHlcString(mutation.hlcTimestamp);
+
+      if (clientHlc.millis > now + MAX_FORWARD_CLOCK_DRIFT_MS) {
+        throw new Error('Forbidden: Client HLC timestamp exceeds maximum allowable forward clock drift');
+      }
+
       latestHlc = this.serverClock.recv(clientHlc);
 
       await this.journalStore.recordChange({
@@ -182,10 +195,12 @@ export class SyncService {
       request.limit
     );
 
-    // Filter out sensitive records if caregiver_guest
+    // Filter out sensitive records if caregiver_guest or non-admin
     let filteredChanges = changes;
     if (userRole === 'caregiver_guest') {
       filteredChanges = changes.filter((c) => !SENSITIVE_CAREGIVER_TABLES.has(c.entityTable));
+    } else if (userRole !== 'admin') {
+      filteredChanges = changes.filter((c) => c.entityTable !== 'vault_items');
     }
 
     const newCursor = changes.length > 0 ? Math.max(...changes.map((c) => c.id)) : request.cursor;

@@ -30,42 +30,47 @@ export function createRealtimeRouter(opts: RealtimeRouterOptions) {
     const householdId = payload.householdId;
 
     return streamSSE(c, async (stream) => {
-      // Initial handshake confirmation
-      await stream.writeSSE({
-        event: 'connected',
-        data: JSON.stringify({
-          householdId,
-          userId: payload.userId,
-          timestamp: new Date().toISOString(),
-        }),
-      });
+      let unsubscribe: (() => void) | undefined;
+      try {
+        // Initial handshake confirmation
+        await stream.writeSSE({
+          event: 'connected',
+          data: JSON.stringify({
+            householdId,
+            userId: payload.userId,
+            timestamp: new Date().toISOString(),
+          }),
+        });
 
-      // Subscribe to real-time sync invalidations for this household
-      const unsubscribe = pubsub.subscribe(householdId, async (event) => {
-        try {
-          await stream.writeSSE({
-            event: 'sync:invalidate',
-            data: JSON.stringify(event),
-          });
-        } catch {
-          // Stream might be closed
-        }
-      });
-
-      stream.onAbort(() => {
-        unsubscribe();
-      });
-
-      // Heartbeat ping interval to keep connection alive across reverse proxies
-      while (!stream.aborted) {
-        await stream.sleep(30000);
-        if (!stream.aborted) {
+        // Subscribe to real-time sync invalidations for this household
+        unsubscribe = pubsub.subscribe(householdId, async (event) => {
           try {
-            await stream.writeSSE({ event: 'ping', data: 'heartbeat' });
+            await stream.writeSSE({
+              event: 'sync:invalidate',
+              data: JSON.stringify(event),
+            });
           } catch {
-            break;
+            // Stream might be closed
+          }
+        });
+
+        stream.onAbort(() => {
+          unsubscribe?.();
+        });
+
+        // Heartbeat ping interval to keep connection alive across reverse proxies
+        while (!stream.aborted) {
+          await stream.sleep(30000);
+          if (!stream.aborted) {
+            try {
+              await stream.writeSSE({ event: 'ping', data: 'heartbeat' });
+            } catch {
+              break;
+            }
           }
         }
+      } finally {
+        unsubscribe?.();
       }
     });
   });

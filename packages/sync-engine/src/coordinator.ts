@@ -35,6 +35,7 @@ export class SyncCoordinator {
   private hlc: HybridLogicalClock;
   private state: SyncState;
   private listeners = new Map<SyncEventType, Set<(data: any) => void>>();
+  private activeSync?: Promise<{ pushed: number; pulled: number; newCursor: number }>;
 
   constructor(options: SyncCoordinatorOptions) {
     this.householdId = options.householdId;
@@ -166,6 +167,18 @@ export class SyncCoordinator {
   }
 
   async sync(): Promise<{ pushed: number; pulled: number; newCursor: number }> {
+    if (this.activeSync) {
+      return this.activeSync;
+    }
+
+    this.activeSync = this.executeSyncCycle().finally(() => {
+      this.activeSync = undefined;
+    });
+
+    return this.activeSync;
+  }
+
+  private async executeSyncCycle(): Promise<{ pushed: number; pulled: number; newCursor: number }> {
     this.emit('sync:start', { timestamp: new Date().toISOString() });
     try {
       const pushRes = await this.push();

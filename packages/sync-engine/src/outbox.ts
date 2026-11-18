@@ -17,10 +17,17 @@ export class InMemoryOutboxStore implements OutboxStore {
   }
 
   async getPending(limit = 100): Promise<OutboxItem[]> {
+    const now = Date.now();
     const pendingList: OutboxItem[] = [];
     for (const item of this.items.values()) {
-      if (item.status === 'pending' || item.status === 'failed') {
+      if (item.status === 'pending') {
         pendingList.push({ ...item });
+      } else if (item.status === 'failed' && item.retryCount < 5) {
+        const delayMs = item.retryCount > 1 ? Math.min(1000 * Math.pow(2, item.retryCount - 2), 60000) : 0;
+        const lastAttempt = item.lastAttemptAt ? new Date(item.lastAttemptAt).getTime() : 0;
+        if (now - lastAttempt >= delayMs) {
+          pendingList.push({ ...item });
+        }
       }
     }
     pendingList.sort((a, b) => a.createdAt.localeCompare(b.createdAt));

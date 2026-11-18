@@ -15,8 +15,8 @@ export type SyncMutation = z.infer<typeof SyncMutationSchema>;
 
 export const SyncPushRequestSchema = z.object({
   householdId: z.string().uuid(),
-  clientId: z.string().min(1).default('default'),
-  mutations: z.array(SyncMutationSchema),
+  clientId: z.string().min(1),
+  mutations: z.array(SyncMutationSchema).max(1000),
 });
 export type SyncPushRequest = z.infer<typeof SyncPushRequestSchema>;
 

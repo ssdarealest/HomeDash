@@ -101,5 +101,11 @@ describe('PostgreSQL Drizzle Server Schema', () => {
     // Verify CDC trigger inserts into entity_table and entity_id
     expect(rlsSql).toContain('entity_table');
     expect(rlsSql).toContain('entity_id');
+
+    // Verify CDC trigger generates packed HLC with node ID
+    expect(rlsSql).toContain('_00000000_postgres');
+
+    // Verify sync_changes RLS policy prevents caregiver guest from accessing financial and vault changes
+    expect(rlsSql).toContain("entity_table NOT IN ('finance_accounts', 'finance_transactions', 'utility_bills', 'vault_items')");
   });
 });
