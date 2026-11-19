@@ -4,3 +4,5 @@ export * from './storage/index';
 export * from './cache/index';
 export * from './sync/index';
 export * from './daily-ops-service';
+export * from './health-service';
+export * from './escalation-worker';

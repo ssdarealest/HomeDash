@@ -13,11 +13,13 @@ import {
   SyncPubSub,
   InMemorySyncJournalStore,
   DailyOpsService,
+  HealthService,
 } from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
 import { createSyncRouter } from './routes/sync';
 import { createRealtimeRouter } from './routes/realtime';
 import { createDailyOpsRouter } from './routes/daily-ops';
+import { createHealthRouter } from './routes/health';
 
 export interface AppOptions {
   jwtSecret?: string;
@@ -26,6 +28,7 @@ export interface AppOptions {
   syncService?: SyncService;
   pubsub?: SyncPubSub;
   dailyOpsService?: DailyOpsService;
+  healthService?: HealthService;
 }
 
 export function createApp(opts?: AppOptions) {
@@ -33,6 +36,7 @@ export function createApp(opts?: AppOptions) {
   const jwtSecret = opts?.jwtSecret || process.env.JWT_SECRET || 'thang_developer_rat_dep_trai!';
   const pubsub = opts?.pubsub || new SyncPubSub();
   const dailyOpsService = opts?.dailyOpsService || new DailyOpsService();
+  const healthService = opts?.healthService || new HealthService();
   const syncService =
     opts?.syncService ||
     new SyncService({
@@ -90,6 +94,13 @@ export function createApp(opts?: AppOptions) {
     jwtSecret,
   });
   app.route('/api/v1/daily-ops', dailyOpsRouter);
+
+  // Mount Health Router under /api/v1/health
+  const healthRouter = createHealthRouter({
+    healthService,
+    jwtSecret,
+  });
+  app.route('/api/v1/health', healthRouter);
 
   // Vault break-glass initiation with auth and validation
   app.post(
