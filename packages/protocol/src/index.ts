@@ -6,3 +6,4 @@ export * from './daily-ops';
 export * from './health';
 export * from './finance';
 export * from './notifications';
+export * from './p2p';
