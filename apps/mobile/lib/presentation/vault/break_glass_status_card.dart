@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../bento/quarantined_card.dart';
 
-class BreakGlassStatusCard extends StatelessWidget {
+class BreakGlassStatusCard extends StatelessWidget implements QuarantinedCard {
   final String requestId;
   final String status; // pending_cooldown, approved, vetoed, expired
   final DateTime cooldownExpiresAt;
@@ -19,6 +20,9 @@ class BreakGlassStatusCard extends StatelessWidget {
     this.onVetoPressed,
     this.onEmergencyAccessPressed,
   }) : super(key: key);
+
+  @override
+  bool get isQuarantined => true;
 
   @override
   Widget build(BuildContext context) {

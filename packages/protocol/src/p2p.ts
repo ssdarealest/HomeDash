@@ -22,6 +22,7 @@ export type PeerHandshakeRequest = z.infer<typeof PeerHandshakeRequestSchema>;
 
 export const PeerHandshakeResponseSchema = z.object({
   accepted: z.boolean(),
+  responderPeerId: z.string().uuid().optional(),
   sessionNonce: z.string().min(8),
   sessionSignature: z.string().min(1),
   reason: z.string().optional(),
@@ -46,6 +47,7 @@ export const PeerSyncPayloadSchema = z.object({
   baseHlc: z.string().min(1),
   targetHlc: z.string().min(1),
   mutations: z.array(PeerMutationSchema),
+  signature: z.string().optional(),
 });
 export type PeerSyncPayload = z.infer<typeof PeerSyncPayloadSchema>;
 

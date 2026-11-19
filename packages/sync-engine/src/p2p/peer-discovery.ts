@@ -43,8 +43,13 @@ export class PeerDiscoveryManager {
     announcement: PeerAnnouncement,
     address: string,
     householdKey: string,
-    nowMs: number = Date.now()
+    nowMs: number = Date.now(),
+    expectedHouseholdId?: string
   ): boolean {
+    if (expectedHouseholdId && announcement.householdId !== expectedHouseholdId) {
+      return false;
+    }
+
     const payload = `${announcement.householdId}:${announcement.peerId}:${announcement.deviceName}:${announcement.hlcTimestamp}:${announcement.port}:${announcement.timestamp}`;
     const expectedSig = createHmac('sha256', householdKey).update(payload).digest('hex');
 
@@ -55,13 +60,14 @@ export class PeerDiscoveryManager {
       return false;
     }
 
-    // Verify clock skew (at most 5 minutes)
+    // Verify clock skew (at most 5 minutes) and guard against NaN bypass
     const annTime = new Date(announcement.timestamp).getTime();
-    if (Math.abs(nowMs - annTime) > 5 * 60 * 1000) {
+    if (Number.isNaN(annTime) || Math.abs(nowMs - annTime) > 5 * 60 * 1000) {
       return false;
     }
 
-    this.peers.set(announcement.peerId, {
+    const mapKey = `${announcement.householdId}:${announcement.peerId}`;
+    this.peers.set(mapKey, {
       householdId: announcement.householdId,
       peerId: announcement.peerId,
       deviceName: announcement.deviceName,

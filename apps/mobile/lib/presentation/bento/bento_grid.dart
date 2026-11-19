@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'quarantined_card.dart';
 import 'widgets/cash_flow_card.dart';
 
 class BentoGrid extends StatelessWidget {
@@ -13,9 +14,9 @@ class BentoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Caregiver guest quarantine: filter out sensitive financial cards
+    // Caregiver guest quarantine: filter out sensitive financial cards like CashFlowCard
     final activeChildren = children.where((child) {
-      if (isCaregiver && child is CashFlowCard) {
+      if (isCaregiver && (child is CashFlowCard || isQuarantinedCard(child))) {
         return false;
       }
       return true;

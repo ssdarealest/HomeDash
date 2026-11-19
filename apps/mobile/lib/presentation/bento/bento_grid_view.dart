@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'widgets/cash_flow_card.dart';
-import '../vault/break_glass_status_card.dart';
+import 'quarantined_card.dart';
+import 'glassmorphic_card.dart';
+import 'bento_widgets.dart';
 
 class BentoGridView extends StatelessWidget {
   final List<Widget> children;
@@ -14,17 +15,45 @@ class BentoGridView extends StatelessWidget {
     this.isGlassmorphic = true,
   });
 
+  Widget _applyCardStyle(Widget child) {
+    if (child is SystemSyncTelemetryCard) {
+      return SystemSyncTelemetryCard(
+        discoveredPeers: child.discoveredPeers,
+        hlcTimestamp: child.hlcTimestamp,
+        isOnline: child.isOnline,
+        isGlassmorphic: isGlassmorphic,
+      );
+    }
+    if (child is HouseholdOpsSummaryCard) {
+      return HouseholdOpsSummaryCard(
+        pendingGroceryCount: child.pendingGroceryCount,
+        pendingChoresCount: child.pendingChoresCount,
+        nextMealTitle: child.nextMealTitle,
+        isGlassmorphic: isGlassmorphic,
+      );
+    }
+    if (child is GlassmorphicCard) {
+      return GlassmorphicCard(
+        isGlassmorphic: isGlassmorphic,
+        padding: child.padding,
+        onTap: child.onTap,
+        child: child.child,
+      );
+    }
+    return GlassmorphicCard(
+      isGlassmorphic: isGlassmorphic,
+      padding: EdgeInsets.zero,
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Caregiver guest quarantine: filter out sensitive financial and vault cards
-    final activeChildren = children.where((child) {
-      if (isCaregiver) {
-        if (child is CashFlowCard || child is BreakGlassStatusCard) {
-          return false;
-        }
-      }
-      return true;
-    }).toList();
+    final activeChildren = children
+        .where((child) => !isCaregiver || !isQuarantinedCard(child))
+        .map(_applyCardStyle)
+        .toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {

@@ -1,9 +1,19 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { HybridLogicalClock, type HLCTimestamp } from '@homedash/shared';
 import type {
   PeerSyncPayload,
   PeerSyncAck,
   PeerMutation,
 } from '@homedash/protocol';
+
+export const SENSITIVE_CAREGIVER_TABLES = new Set([
+  'finance_accounts',
+  'finance_transactions',
+  'utility_bills',
+  'vault_items',
+]);
+
+export const MAX_FORWARD_CLOCK_DRIFT_MS = 60_000;
 
 export interface P2PSyncCoordinatorOptions {
   householdId: string;
@@ -75,9 +85,11 @@ export class P2PSyncCoordinator {
         const millis = new Date(iso).getTime();
         const counter = parseInt(parts[3] || '0', 10);
         const nodeId = parts.slice(4).join('-') || this.peerId;
-        return { millis: isNaN(millis) ? Date.now() : millis, counter: isNaN(counter) ? 0 : counter, nodeId };
+        if (!isNaN(millis) && millis > 0) {
+          return { millis, counter: isNaN(counter) ? 0 : counter, nodeId };
+        }
       }
-      return { millis: Date.now(), counter: 0, nodeId: this.peerId };
+      return { millis: 0, counter: 0, nodeId: 'invalid' };
     }
   }
 
@@ -123,12 +135,21 @@ export class P2PSyncCoordinator {
     return this.localRecords.get(`${entityTable}:${entityId}`);
   }
 
-  async createSyncPayload(sinceHlc: string): Promise<PeerSyncPayload> {
-    const newerMutations = this.mutationLog.filter((m) => {
+  async createSyncPayload(sinceHlc: string, targetPeerRole?: string): Promise<PeerSyncPayload> {
+    let newerMutations = this.mutationLog.filter((m) => {
       return this.compareHlcStrings(m.hlcTimestamp, sinceHlc) > 0;
     });
 
+    if (targetPeerRole === 'caregiver_guest') {
+      newerMutations = newerMutations.filter((m) => {
+        const table = m.entityTable || m.entityType || '';
+        return !SENSITIVE_CAREGIVER_TABLES.has(table);
+      });
+    }
+
     const currentHlc = this.getCurrentHlcString();
+    const payloadToSign = `${this.householdId}:${this.peerId}:${sinceHlc}:${currentHlc}:${newerMutations.length}`;
+    const signature = createHmac('sha256', this.householdKey).update(payloadToSign).digest('hex');
 
     return {
       senderPeerId: this.peerId,
@@ -136,10 +157,11 @@ export class P2PSyncCoordinator {
       baseHlc: sinceHlc,
       targetHlc: currentHlc,
       mutations: newerMutations,
+      signature,
     };
   }
 
-  async receiveSyncPayload(payload: PeerSyncPayload): Promise<PeerSyncAck> {
+  async receiveSyncPayload(payload: PeerSyncPayload, senderPeerRole?: string): Promise<PeerSyncAck> {
     if (payload.householdId !== this.householdId) {
       return {
         status: 'error',
@@ -149,16 +171,44 @@ export class P2PSyncCoordinator {
       };
     }
 
+    if (payload.signature) {
+      const payloadToSign = `${payload.householdId}:${payload.senderPeerId}:${payload.baseHlc}:${payload.targetHlc}:${payload.mutations.length}`;
+      const expectedSig = createHmac('sha256', this.householdKey).update(payloadToSign).digest('hex');
+      const sigBuf = Buffer.from(payload.signature, 'hex');
+      const expBuf = Buffer.from(expectedSig, 'hex');
+
+      if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+        return {
+          status: 'error',
+          appliedCount: 0,
+          newHlc: this.getCurrentHlcString(),
+          error: 'Invalid payload signature: authentication failed',
+        };
+      }
+    }
+
+    const nowMs = Date.now();
     let appliedCount = 0;
 
     for (const mutation of payload.mutations) {
       const table = mutation.entityTable || mutation.entityType || 'default';
+      if (senderPeerRole === 'caregiver_guest' && SENSITIVE_CAREGIVER_TABLES.has(table)) {
+        // Drop caregiver-mutated sensitive financial/vault tables
+        continue;
+      }
+
+      const remoteHlcTs = this.parseHlc(mutation.hlcTimestamp);
+      // Prevent clock poisoning from forward clock drift
+      if (remoteHlcTs.millis > nowMs + MAX_FORWARD_CLOCK_DRIFT_MS) {
+        continue;
+      }
+
+      if (remoteHlcTs.millis > 0) {
+        this.hlc.recv(remoteHlcTs);
+      }
+
       const key = `${table}:${mutation.entityId}`;
       const existing = this.localRecords.get(key);
-
-      // Advance our local HLC with incoming remote mutation timestamp
-      const remoteHlcTs = this.parseHlc(mutation.hlcTimestamp);
-      this.hlc.recv(remoteHlcTs);
 
       if (!existing || this.compareHlcStrings(mutation.hlcTimestamp, existing.hlcTimestamp) > 0) {
         this.localRecords.set(key, {
@@ -183,15 +233,16 @@ export class P2PSyncCoordinator {
   async performPeerSync(
     remotePeerId: string,
     transport: RemoteSyncTransport,
-    lastKnownRemoteHlc: string
+    lastKnownRemoteHlc: string,
+    remotePeerRole?: string
   ): Promise<{ sentCount: number; receivedCount: number; currentHlc: string }> {
     // 1. Push our deltas since remote's last known HLC
-    const pushPayload = await this.createSyncPayload(lastKnownRemoteHlc);
+    const pushPayload = await this.createSyncPayload(lastKnownRemoteHlc, remotePeerRole);
     const pushAck = await transport.sendPayload(pushPayload);
 
     // 2. Pull remote deltas since our local HLC
     const pullPayload = await transport.requestPayload(this.getCurrentHlcString());
-    const pullAck = await this.receiveSyncPayload(pullPayload);
+    const pullAck = await this.receiveSyncPayload(pullPayload, remotePeerRole);
 
     return {
       sentCount: pushAck.appliedCount,

@@ -2,6 +2,17 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { PeerHandshakeRequest, PeerHandshakeResponse } from '@homedash/protocol';
 
 export class PeerSessionCoordinator {
+  private seenNonces = new Map<string, number>();
+
+  private pruneNonces(nowMs: number): void {
+    const cutoff = nowMs - 5 * 60 * 1000;
+    for (const [nonce, ts] of this.seenNonces.entries()) {
+      if (ts < cutoff) {
+        this.seenNonces.delete(nonce);
+      }
+    }
+  }
+
   createHandshakeRequest(
     householdId: string,
     peerId: string,
@@ -42,25 +53,33 @@ export class PeerSessionCoordinator {
     }
 
     const reqTime = new Date(req.timestamp).getTime();
-    if (Math.abs(nowMs - reqTime) > 5 * 60 * 1000) {
-      return { valid: false, reason: 'Timestamp skew exceeded' };
+    if (Number.isNaN(reqTime) || Math.abs(nowMs - reqTime) > 5 * 60 * 1000) {
+      return { valid: false, reason: 'Timestamp skew exceeded or invalid' };
     }
+
+    this.pruneNonces(nowMs);
+    if (this.seenNonces.has(req.nonce)) {
+      return { valid: false, reason: 'Replay detected: nonce already used' };
+    }
+    this.seenNonces.set(req.nonce, nowMs);
 
     return { valid: true };
   }
 
   createHandshakeResponse(
     req: PeerHandshakeRequest,
-    householdKey: string
+    householdKey: string,
+    responderPeerId?: string
   ): PeerHandshakeResponse {
     const sessionNonce = randomBytes(16).toString('hex');
-    const payload = `${req.nonce}:${sessionNonce}`;
+    const payload = `${req.householdId}:${req.peerId}:${req.nonce}:${sessionNonce}`;
     const sessionSignature = createHmac('sha256', householdKey).update(payload).digest('hex');
 
     return {
       accepted: true,
       sessionNonce,
       sessionSignature,
+      responderPeerId,
     };
   }
 
@@ -71,7 +90,7 @@ export class PeerSessionCoordinator {
   ): boolean {
     if (!res.accepted) return false;
 
-    const payload = `${req.nonce}:${res.sessionNonce}`;
+    const payload = `${req.householdId}:${req.peerId}:${req.nonce}:${res.sessionNonce}`;
     const expectedSig = createHmac('sha256', householdKey).update(payload).digest('hex');
 
     const sigBuf = Buffer.from(res.sessionSignature, 'hex');

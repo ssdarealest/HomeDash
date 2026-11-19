@@ -128,5 +128,21 @@ describe('P2P Peer Discovery & Session Coordinator (Phase 6 Task 2)', () => {
       const verifyWrongKey = sessionCoord.verifyHandshakeRequest(req, householdId, wrongKey);
       expect(verifyWrongKey.valid).toBe(false);
     });
+
+    it('rejects replayed handshake requests and malformed timestamps', () => {
+      const req = sessionCoord.createHandshakeRequest(householdId, peer1Id, householdKey);
+      const firstCheck = sessionCoord.verifyHandshakeRequest(req, householdId, householdKey);
+      expect(firstCheck.valid).toBe(true);
+
+      // Replay identical request
+      const replayCheck = sessionCoord.verifyHandshakeRequest(req, householdId, householdKey);
+      expect(replayCheck.valid).toBe(false);
+      expect(replayCheck.reason).toContain('Replay detected');
+
+      // Malformed timestamp
+      const badReq = { ...req, nonce: 'fresh-nonce-123', timestamp: 'not-a-valid-date' };
+      const badCheck = sessionCoord.verifyHandshakeRequest(badReq, householdId, householdKey);
+      expect(badCheck.valid).toBe(false);
+    });
   });
 });
