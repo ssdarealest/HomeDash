@@ -30,6 +30,9 @@ export function createVaultBreakGlassRouter(opts: VaultBreakGlassRouterOptions) 
     async (c) => {
       const session = c.get('session' as any);
       const { householdId } = c.req.valid('json');
+      if (householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const result = await vaultBreakGlassService.initiateBreakGlass(householdId, session?.userId);
       return c.json(result, 200);
     }
@@ -58,7 +61,7 @@ export function createVaultBreakGlassRouter(opts: VaultBreakGlassRouterOptions) 
     return c.json(result, 200);
   });
 
-  router.get('/escrow-shares/:id', async (c) => {
+  const handleEscrowShares = async (c: any) => {
     const id = c.req.param('id');
     const session = c.get('session' as any);
     const shares = await vaultBreakGlassService.getEscrowShares(id, session?.userId);
@@ -66,9 +69,12 @@ export function createVaultBreakGlassRouter(opts: VaultBreakGlassRouterOptions) 
       return c.json({ error: 'Unauthorized or request not approved' }, 403);
     }
     return c.json({ escrowShares: shares }, 200);
-  });
+  };
 
-  router.get('/emergency-items/:id', async (c) => {
+  router.get('/escrow-shares/:id', handleEscrowShares);
+  router.get('/:id/escrow-shares', handleEscrowShares);
+
+  const handleEmergencyItems = async (c: any) => {
     const id = c.req.param('id');
     const session = c.get('session' as any);
     const items = await vaultBreakGlassService.getEmergencyVaultItems(id, session?.userId);
@@ -76,7 +82,10 @@ export function createVaultBreakGlassRouter(opts: VaultBreakGlassRouterOptions) 
       return c.json({ error: 'Unauthorized or request not approved' }, 403);
     }
     return c.json({ vaultItems: items }, 200);
-  });
+  };
+
+  router.get('/emergency-items/:id', handleEmergencyItems);
+  router.get('/:id/emergency-items', handleEmergencyItems);
 
   return router;
 }

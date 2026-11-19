@@ -43,6 +43,20 @@ export class VaultBreakGlassService {
     this.vaultItems.set(householdId, data.vaultItems);
   }
 
+  evaluateStatus(
+    request: BreakGlassRequestRecord,
+    currentDate: Date = new Date()
+  ): 'pending_cooldown' | 'approved' | 'vetoed' | 'expired' {
+    if (request.status === 'pending_cooldown') {
+      const expiresAt = new Date(request.cooldownExpiresAt).getTime();
+      if (expiresAt <= currentDate.getTime()) {
+        request.status = 'approved';
+        request.updatedAt = currentDate.toISOString();
+      }
+    }
+    return request.status;
+  }
+
   async initiateBreakGlass(
     householdId: string,
     requestedByMemberId: string,
@@ -103,10 +117,17 @@ export class VaultBreakGlassService {
 
   async vetoBreakGlass(
     requestId: string,
-    vetoToken: string
+    vetoToken: string,
+    currentDate: Date = new Date()
   ): Promise<{ status: 'vetoed' } | null> {
     const request = this.requests.get(requestId);
-    if (!request || request.status !== 'pending_cooldown') {
+    if (!request) {
+      return null;
+    }
+
+    // Lazily evaluate status first: if cooldown expired, it cannot be vetoed!
+    const currentStatus = this.evaluateStatus(request, currentDate);
+    if (currentStatus !== 'pending_cooldown') {
       return null;
     }
 
@@ -130,27 +151,25 @@ export class VaultBreakGlassService {
     const request = this.requests.get(requestId);
     if (!request) return null;
 
-    if (request.status === 'pending_cooldown') {
-      const expiresAt = new Date(request.cooldownExpiresAt).getTime();
-      if (expiresAt <= currentDate.getTime()) {
-        request.status = 'approved';
-        request.updatedAt = new Date().toISOString();
-      }
-    }
+    const status = this.evaluateStatus(request, currentDate);
 
     return {
       requestId: request.id,
-      status: request.status,
+      status,
       cooldownExpiresAt: request.cooldownExpiresAt,
     };
   }
 
   async getEscrowShares(
     requestId: string,
-    memberId: string
+    memberId: string,
+    currentDate: Date = new Date()
   ): Promise<EscrowShareRecord[] | null> {
     const request = this.requests.get(requestId);
-    if (!request || request.status !== 'approved' || request.requestedByMemberId !== memberId) {
+    if (!request) return null;
+
+    const status = this.evaluateStatus(request, currentDate);
+    if (status !== 'approved' || request.requestedByMemberId !== memberId) {
       return null;
     }
     return this.escrowShares.get(request.householdId) || [];
@@ -158,10 +177,14 @@ export class VaultBreakGlassService {
 
   async getEmergencyVaultItems(
     requestId: string,
-    memberId: string
+    memberId: string,
+    currentDate: Date = new Date()
   ): Promise<VaultItemRecord[] | null> {
     const request = this.requests.get(requestId);
-    if (!request || request.status !== 'approved' || request.requestedByMemberId !== memberId) {
+    if (!request) return null;
+
+    const status = this.evaluateStatus(request, currentDate);
+    if (status !== 'approved' || request.requestedByMemberId !== memberId) {
       return null;
     }
     return this.vaultItems.get(request.householdId) || [];

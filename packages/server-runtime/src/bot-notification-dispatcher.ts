@@ -5,6 +5,7 @@ export interface ActionTokenData {
   medicationId: string;
   memberId: string;
   scheduledAt: string;
+  createdAt: number;
 }
 
 export interface ResolvedAction {
@@ -21,22 +22,37 @@ export class BotNotificationDispatcher {
     memberId: string,
     scheduledAt: string
   ): { takenToken: string; snoozeToken: string } {
-    const id = randomBytes(6).toString('hex'); // 12-char hex string
+    // 8 bytes (16 hex chars) - high entropy while comfortably fitting in Telegram 64-byte callback_data
+    const takenId = randomBytes(8).toString('hex');
+    const snoozeId = randomBytes(8).toString('hex');
+    const now = Date.now();
     const data: ActionTokenData = {
       householdId,
       medicationId,
       memberId,
       scheduledAt,
+      createdAt: now,
     };
-    this.tokenRegistry.set(id, data);
+    this.tokenRegistry.set(takenId, data);
+    this.tokenRegistry.set(snoozeId, data);
+
+    // Prune stale tokens older than 24h if registry exceeds 5000 items
+    if (this.tokenRegistry.size > 5000) {
+      const cutoff = now - 24 * 60 * 60 * 1000;
+      for (const [key, val] of this.tokenRegistry.entries()) {
+        if (val.createdAt < cutoff) {
+          this.tokenRegistry.delete(key);
+        }
+      }
+    }
 
     return {
-      takenToken: `t:${id}:taken`,
-      snoozeToken: `t:${id}:snooze`,
+      takenToken: `t:${takenId}:taken`,
+      snoozeToken: `t:${snoozeId}:snooze`,
     };
   }
 
-  resolveToken(token: string): ResolvedAction | null {
+  resolveToken(token: string, consume: boolean = true): ResolvedAction | null {
     const parts = token.split(':');
     if (parts.length !== 3 || parts[0] !== 't') {
       return null;
@@ -49,6 +65,17 @@ export class BotNotificationDispatcher {
 
     const data = this.tokenRegistry.get(id);
     if (!data) return null;
+
+    // Check token expiry (24 hours)
+    if (Date.now() - data.createdAt > 24 * 60 * 60 * 1000) {
+      this.tokenRegistry.delete(id);
+      return null;
+    }
+
+    // Single-use token: consume upon successful resolution to prevent replay attacks
+    if (consume) {
+      this.tokenRegistry.delete(id);
+    }
 
     return {
       action,

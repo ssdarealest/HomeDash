@@ -44,11 +44,20 @@ export function createHealthRouter(opts: HealthRouterOptions) {
 
   router.use('*', authMiddleware(jwtSecret));
 
+  // Assert session household matches query if provided
+  router.use('*', async (c, next) => {
+    const session = c.get('session' as any);
+    const queryHouseholdId = c.req.query('householdId');
+    if (queryHouseholdId && session && queryHouseholdId !== session.householdId) {
+      return c.json({ error: 'Forbidden: household mismatch' }, 403);
+    }
+    await next();
+  });
+
   // --- Medications ---
   router.get('/medications', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const meds = await healthService.getMedications(householdId);
     return c.json(meds);
   });
@@ -59,7 +68,11 @@ export function createHealthRouter(opts: HealthRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const med = await healthService.createMedication(data);
       return c.json(med, 201);
     }
@@ -73,9 +86,13 @@ export function createHealthRouter(opts: HealthRouterOptions) {
     async (c) => {
       const id = c.req.param('id');
       const session = c.get('session' as any);
+      const med = await healthService.getMedication(id);
+      if (!med) return c.json({ error: 'Medication not found' }, 404);
+      if (med.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const data = c.req.valid('json');
       const result = await healthService.takeMedication(id, session?.userId, data);
-      if (!result) return c.json({ error: 'Medication not found' }, 404);
       return c.json(result);
     }
   );
@@ -88,18 +105,21 @@ export function createHealthRouter(opts: HealthRouterOptions) {
     async (c) => {
       const id = c.req.param('id');
       const session = c.get('session' as any);
+      const med = await healthService.getMedication(id);
+      if (!med) return c.json({ error: 'Medication not found' }, 404);
+      if (med.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const data = c.req.valid('json');
       const result = await healthService.snoozeMedication(id, session?.userId, data.snoozeMinutes);
-      if (!result) return c.json({ error: 'Medication not found' }, 404);
       return c.json(result);
     }
   );
 
   router.get('/medications/logs', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
+    const householdId = session.householdId;
     const medicationId = c.req.query('medicationId');
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
     const logs = await healthService.getMedicationLogs(householdId, medicationId);
     return c.json(logs);
   });
@@ -107,8 +127,7 @@ export function createHealthRouter(opts: HealthRouterOptions) {
   // --- Caregiver Shifts ---
   router.get('/shifts', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const shifts = await healthService.getShifts(householdId);
     return c.json(shifts);
   });
@@ -119,7 +138,11 @@ export function createHealthRouter(opts: HealthRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const shift = await healthService.createShift(data);
       return c.json(shift, 201);
     }
@@ -132,28 +155,35 @@ export function createHealthRouter(opts: HealthRouterOptions) {
     }),
     async (c) => {
       const id = c.req.param('id');
+      const session = c.get('session' as any);
       const { targetMemberId, notes } = c.req.valid('json');
       const result = await healthService.swapShift(id, targetMemberId, notes);
       if (!result) return c.json({ error: 'Shift not found' }, 404);
+      if (result.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       return c.json(result);
     }
   );
 
   router.post('/shifts/:id/checkin', async (c) => {
     const id = c.req.param('id');
+    const session = c.get('session' as any);
     const body = await c.req.json().catch(() => ({}));
     const result = await healthService.checkinShift(id, body?.notes);
     if (!result) return c.json({ error: 'Shift not found' }, 404);
+    if (result.householdId !== session.householdId) {
+      return c.json({ error: 'Forbidden: household mismatch' }, 403);
+    }
     return c.json(result);
   });
 
   // --- Vitals ---
   router.get('/vitals', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
+    const householdId = session.householdId;
     const memberId = c.req.query('memberId');
     const vitalType = c.req.query('vitalType');
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
     const records = await healthService.getVitals(householdId, memberId, vitalType);
     return c.json(records);
   });
@@ -164,7 +194,11 @@ export function createHealthRouter(opts: HealthRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const record = await healthService.logVitals(data);
       return c.json(record, 201);
     }
@@ -172,11 +206,11 @@ export function createHealthRouter(opts: HealthRouterOptions) {
 
   router.get('/vitals/trends', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
+    const householdId = session.householdId;
     const memberId = c.req.query('memberId');
     const vitalType = c.req.query('vitalType');
-    if (!householdId || !memberId || !vitalType) {
-      return c.json({ error: 'householdId, memberId, and vitalType are required' }, 400);
+    if (!memberId || !vitalType) {
+      return c.json({ error: 'memberId and vitalType are required' }, 400);
     }
     const trends = await healthService.getVitalsTrends(householdId, memberId, vitalType);
     return c.json(trends);
@@ -185,9 +219,8 @@ export function createHealthRouter(opts: HealthRouterOptions) {
   // --- Allergies ---
   router.get('/allergies', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
+    const householdId = session.householdId;
     const memberId = c.req.query('memberId');
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
     const allergies = await healthService.getAllergies(householdId, memberId);
     return c.json(allergies);
   });
@@ -198,7 +231,11 @@ export function createHealthRouter(opts: HealthRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const allergy = await healthService.createAllergy(data);
       return c.json(allergy, 201);
     }

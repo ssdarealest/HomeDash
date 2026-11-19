@@ -4,7 +4,7 @@ import {
   HealthService,
   BotNotificationDispatcher,
 } from '@homedash/server-runtime';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 export interface NotificationsRouterOptions {
   healthService: HealthService;
@@ -22,9 +22,10 @@ export function createNotificationsRouter(opts: NotificationsRouterOptions) {
       if (!headerToken) {
         return c.json({ error: 'Missing webhook secret token' }, 401);
       }
-      const headerBuf = Buffer.from(headerToken);
-      const secretBuf = Buffer.from(botSecretToken);
-      if (headerBuf.length !== secretBuf.length || !timingSafeEqual(headerBuf, secretBuf)) {
+      // Compare constant-length SHA-256 hashes to prevent leaking token length
+      const headerHash = createHash('sha256').update(headerToken).digest();
+      const secretHash = createHash('sha256').update(botSecretToken).digest();
+      if (!timingSafeEqual(headerHash, secretHash)) {
         return c.json({ error: 'Invalid webhook secret token' }, 401);
       }
     }

@@ -48,9 +48,32 @@ export function createApp(opts?: AppOptions) {
   const app = new Hono();
   const jwtSecret = opts?.jwtSecret || process.env.JWT_SECRET || 'thang_developer_rat_dep_trai!';
   const pubsub = opts?.pubsub || new SyncPubSub();
-  const dailyOpsService = opts?.dailyOpsService || new DailyOpsService();
   const healthService = opts?.healthService || new HealthService();
   const financeService = opts?.financeService || new FinanceService();
+  const dailyOpsService =
+    opts?.dailyOpsService ||
+    new DailyOpsService({
+      getAllergies: async (hId) => healthService.getAllergies(hId),
+      logExpense: async (tx) => financeService.createTransaction(tx as any),
+      creditAllowance: async (al) => {
+        const accounts = await financeService.getAccounts(al.householdId);
+        const allowanceAccount = accounts.find(
+          (a) => a.ownerMemberId === al.memberId && a.accountType === 'personal_allowance'
+        );
+        if (allowanceAccount) {
+          return financeService.createTransaction({
+            householdId: al.householdId,
+            accountId: allowanceAccount.id,
+            amountCents: al.amountCents,
+            transactionType: 'income',
+            category: 'Allowance',
+            description: `Chore reward: ${al.title}`,
+            source: 'manual',
+          });
+        }
+        return null;
+      },
+    });
   const androidIngestService =
     opts?.androidIngestService || new AndroidIngestService(financeService);
   const vaultBreakGlassService =

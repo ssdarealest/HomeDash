@@ -132,12 +132,13 @@ export class HealthService {
 
     const logId = crypto.randomUUID();
     const now = new Date().toISOString();
+    const doseTime = input?.takenAt || now;
     const log: MedicationLogRecord = {
       id: logId,
       householdId: med.householdId,
       medicationId: med.id,
-      scheduledAt: now,
-      takenAt: input?.takenAt || now,
+      scheduledAt: doseTime,
+      takenAt: doseTime,
       status: 'taken',
       photoProofUrl: input?.photoProofUrl,
       recordedByMemberId,
@@ -175,6 +176,25 @@ export class HealthService {
       createdAt: now,
     };
     this.medicationLogs.set(logId, log);
+    return log;
+  }
+
+  async recordEscalatedLog(
+    householdId: string,
+    medicationId: string,
+    scheduledAt: string
+  ): Promise<MedicationLogRecord> {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const log: MedicationLogRecord = {
+      id,
+      householdId,
+      medicationId,
+      scheduledAt,
+      status: 'missed_escalated',
+      createdAt: now,
+    };
+    this.medicationLogs.set(id, log);
     return log;
   }
 
@@ -302,8 +322,12 @@ export class HealthService {
     const primaries = records.map((r) => r.valuePrimary);
     const sum = primaries.reduce((acc, v) => acc + v, 0);
     const avgPrimary = Math.round((sum / primaries.length) * 100) / 100;
-    const minPrimary = Math.min(...primaries);
-    const maxPrimary = Math.max(...primaries);
+    let minPrimary = primaries[0];
+    let maxPrimary = primaries[0];
+    for (const val of primaries) {
+      if (val < minPrimary) minPrimary = val;
+      if (val > maxPrimary) maxPrimary = val;
+    }
 
     return {
       count: records.length,

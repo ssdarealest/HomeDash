@@ -93,6 +93,9 @@ export class AndroidIngestService {
     if (this.processedHashes.has(idempotencyHash)) {
       return { status: 'duplicate_ignored' };
     }
+    if (this.processedHashes.size > 5000) {
+      this.processedHashes.clear();
+    }
     this.processedHashes.add(idempotencyHash);
 
     // Resolve target account
@@ -104,6 +107,11 @@ export class AndroidIngestService {
         return { status: 'rejected', error: 'No financial account found for household' };
       }
       targetAccountId = checking.id;
+    } else {
+      const account = await this.financeService.getAccount(targetAccountId);
+      if (!account || account.householdId !== householdId) {
+        return { status: 'rejected', error: 'Account does not belong to household' };
+      }
     }
 
     // Parse notification

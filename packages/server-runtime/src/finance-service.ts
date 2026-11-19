@@ -112,6 +112,10 @@ export class FinanceService {
       throw new Error(`Account not found: ${input.accountId}`);
     }
 
+    if (account.householdId !== input.householdId) {
+      throw new Error(`Account ${input.accountId} does not belong to household ${input.householdId}`);
+    }
+
     if (input.transactionType === 'expense') {
       account.balanceCents -= input.amountCents;
     } else if (input.transactionType === 'income') {

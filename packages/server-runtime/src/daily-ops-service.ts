@@ -130,6 +130,13 @@ export class DailyOpsService {
       (item) => item.householdId === checkout.householdId && item.isChecked && !item.isArchived
     );
 
+    if (items.length === 0) {
+      return {
+        archivedItemCount: 0,
+        expenseLogged: false,
+      };
+    }
+
     for (const item of items) {
       item.isArchived = true;
       item.updatedAt = new Date().toISOString();
@@ -201,9 +208,12 @@ export class DailyOpsService {
           },
         ];
 
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     for (const a of householdAllergies) {
-      const allergenPattern = new RegExp(`\\b${a.allergen.toLowerCase()}\\b`, 'i');
-      if (allergenPattern.test(textToScan) || textToScan.includes(a.allergen.toLowerCase())) {
+      const sanitized = escapeRegex(a.allergen.toLowerCase());
+      const allergenPattern = new RegExp(`\\b${sanitized}\\b`, 'i');
+      if (allergenPattern.test(textToScan)) {
         warnings.push({
           memberId: a.memberId,
           allergen: a.allergen,
@@ -266,13 +276,12 @@ export class DailyOpsService {
   ): Promise<{ chore: ChoreRecord; pointsAwarded: number; allowanceCreditedCents: number } | null> {
     const chore = this.chores.get(id);
     if (!chore) return null;
-    chore.verifiedByAdmin = verified;
-    chore.updatedAt = new Date().toISOString();
 
     let pointsAwarded = 0;
     let allowanceCreditedCents = 0;
 
-    if (verified && chore.isCompleted) {
+    // Idempotency: only award points and credit allowance on first transition to verified
+    if (!chore.verifiedByAdmin && verified && chore.isCompleted) {
       pointsAwarded = chore.rewardPoints;
       allowanceCreditedCents = chore.allowanceCents;
 
@@ -285,6 +294,9 @@ export class DailyOpsService {
         });
       }
     }
+
+    chore.verifiedByAdmin = verified;
+    chore.updatedAt = new Date().toISOString();
 
     return { chore, pointsAwarded, allowanceCreditedCents };
   }

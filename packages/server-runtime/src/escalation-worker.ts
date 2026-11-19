@@ -36,6 +36,9 @@ export class EscalationWorker {
 
   registerExpectedDose(dose: ExpectedDose): void {
     this.expectedDoses.push(dose);
+    if (this.expectedDoses.length > 5000) {
+      this.expectedDoses.splice(0, 1000);
+    }
   }
 
   async evaluateMissedDoses(currentDate: Date = new Date()): Promise<{
@@ -54,22 +57,28 @@ export class EscalationWorker {
         continue;
       }
 
-      // Check logs for this medication
+      // Check logs for this specific medication
       const logs = await this.healthService.getMedicationLogs(
         expected.householdId,
         expected.medicationId
       );
 
-      // Check if taken
-      const isTaken = logs.some((l) => l.status === 'taken');
+      // Check if this specific dose was taken (within 45m tolerance of scheduled dose time)
+      const isTaken = logs.some((l) => {
+        if (l.status !== 'taken') return false;
+        const logTime = new Date(l.scheduledAt).getTime();
+        return Math.abs(logTime - scheduledTime) < 45 * 60 * 1000;
+      });
       if (isTaken) {
         continue;
       }
 
-      // Check if snoozed with active window
+      // Check if this specific dose was snoozed with active window
       const activeSnooze = logs.find((l) => {
         if (l.status === 'snoozed' && l.takenAt) {
-          return new Date(l.takenAt).getTime() > nowTime;
+          const logScheduledTime = new Date(l.scheduledAt).getTime();
+          const matchesDose = Math.abs(logScheduledTime - scheduledTime) < 45 * 60 * 1000;
+          return matchesDose && new Date(l.takenAt).getTime() > nowTime;
         }
         return false;
       });
@@ -79,7 +88,13 @@ export class EscalationWorker {
         continue;
       }
 
-      // Escalation condition met
+      // Escalation condition met: persist escalation log into health service
+      await this.healthService.recordEscalatedLog(
+        expected.householdId,
+        expected.medicationId,
+        expected.scheduledAt
+      );
+
       const med = await this.healthService.getMedication(expected.medicationId);
       const alert: EscalationAlert = {
         householdId: expected.householdId,
@@ -91,6 +106,9 @@ export class EscalationWorker {
       };
 
       this.escalatedDoseKeys.add(key);
+      if (this.escalatedDoseKeys.size > 5000) {
+        this.escalatedDoseKeys.clear();
+      }
       alerts.push(alert);
 
       if (this.onEscalate) {

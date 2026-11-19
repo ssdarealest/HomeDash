@@ -1,17 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createApp } from '../src/app';
-import { signSessionJwt } from '@homedash/server-runtime';
+import { signSessionJwt, FinanceService } from '@homedash/server-runtime';
 
 describe('Daily Ops Routes & Workflows (Phase 5 Task 2)', () => {
   const jwtSecret = 'test_secret_key_daily_ops_phase5';
   let app: ReturnType<typeof createApp>;
+  let financeService: FinanceService;
   let adminToken: string;
   let childToken: string;
   const householdId = '11111111-1111-4111-a111-111111111111';
   const childMemberId = '22222222-2222-4222-a222-222222222222';
 
   beforeEach(async () => {
-    app = createApp({ jwtSecret });
+    financeService = new FinanceService();
+    app = createApp({ jwtSecret, financeService });
     adminToken = await signSessionJwt(
       {
         userId: 'admin-user-id',
@@ -67,7 +69,13 @@ describe('Daily Ops Routes & Workflows (Phase 5 Task 2)', () => {
     expect(checkedItem.isChecked).toBe(true);
 
     // 3. Checkout and log expense
-    const accountId = '33333333-3333-4333-a333-333333333333';
+    const account = await financeService.createAccount({
+      householdId,
+      name: 'Main Checking',
+      accountType: 'shared_checking',
+      currency: 'USD',
+    });
+    const accountId = account.id;
     const checkoutRes = await app.request('/api/v1/daily-ops/grocery/checkout', {
       method: 'POST',
       headers: {

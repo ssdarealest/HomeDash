@@ -24,11 +24,20 @@ export function createFinanceRouter(opts: FinanceRouterOptions) {
   // Only household members with role admin, senior, or teen_child can access finance (caregiver guests blocked)
   router.use('*', requireRole(['admin', 'senior', 'teen_child']));
 
+  // Assert session household matches query if provided
+  router.use('*', async (c, next) => {
+    const session = c.get('session' as any);
+    const queryHouseholdId = c.req.query('householdId');
+    if (queryHouseholdId && session && queryHouseholdId !== session.householdId) {
+      return c.json({ error: 'Forbidden: household mismatch' }, 403);
+    }
+    await next();
+  });
+
   // --- Accounts ---
   router.get('/accounts', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const accounts = await financeService.getAccounts(householdId);
     return c.json(accounts);
   });
@@ -39,7 +48,11 @@ export function createFinanceRouter(opts: FinanceRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const account = await financeService.createAccount(data);
       return c.json(account, 201);
     }
@@ -48,9 +61,8 @@ export function createFinanceRouter(opts: FinanceRouterOptions) {
   // --- Transactions ---
   router.get('/transactions', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
+    const householdId = session.householdId;
     const accountId = c.req.query('accountId');
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
     const transactions = await financeService.getTransactions(householdId, accountId);
     return c.json(transactions);
   });
@@ -61,7 +73,11 @@ export function createFinanceRouter(opts: FinanceRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       try {
         const transaction = await financeService.createTransaction(data);
         return c.json(transaction, 201);
@@ -74,8 +90,7 @@ export function createFinanceRouter(opts: FinanceRouterOptions) {
   // --- Sinking Funds ---
   router.get('/sinking-funds', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const summary = await financeService.getSinkingFundsSummary(householdId);
     return c.json(summary);
   });
@@ -83,9 +98,8 @@ export function createFinanceRouter(opts: FinanceRouterOptions) {
   // --- Utility Bills ---
   router.get('/bills', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
+    const householdId = session.householdId;
     const billType = c.req.query('billType');
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
     const bills = await financeService.getUtilityBills(householdId, billType);
     return c.json(bills);
   });
@@ -96,7 +110,11 @@ export function createFinanceRouter(opts: FinanceRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const result = await financeService.createUtilityBill(data);
       return c.json(result, 201);
     }

@@ -35,11 +35,20 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
 
   router.use('*', authMiddleware(jwtSecret));
 
+  // Middleware ensuring caller's session matches any query or body householdId
+  router.use('*', async (c, next) => {
+    const session = c.get('session' as any);
+    const queryHouseholdId = c.req.query('householdId');
+    if (queryHouseholdId && session && queryHouseholdId !== session.householdId) {
+      return c.json({ error: 'Forbidden: household mismatch' }, 403);
+    }
+    await next();
+  });
+
   // --- Grocery ---
   router.get('/grocery', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const items = await dailyOpsService.getGroceryItems(householdId);
     return c.json(items);
   });
@@ -50,7 +59,11 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const item = await dailyOpsService.createGroceryItem(data);
       return c.json(item, 201);
     }
@@ -63,20 +76,29 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
     }),
     async (c) => {
       const id = c.req.param('id');
+      const session = c.get('session' as any);
       const { isChecked, checkedByMemberId } = c.req.valid('json');
-      const item = await dailyOpsService.checkGroceryItem(id, isChecked, checkedByMemberId);
+      const item = await dailyOpsService.checkGroceryItem(id, isChecked, checkedByMemberId || session.userId);
       if (!item) return c.json({ error: 'Item not found' }, 404);
+      if (item.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       return c.json(item);
     }
   );
 
   router.post(
     '/grocery/checkout',
+    requireRole(['admin', 'senior', 'teen_child']),
     zValidator('json', GroceryCheckoutSchema, (result, c) => {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const result = await dailyOpsService.checkoutGroceryList(data);
       return c.json(result);
     }
@@ -85,8 +107,7 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
   // --- Meal Plans ---
   router.get('/meal-plans', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const plans = await dailyOpsService.getMealPlans(householdId);
     return c.json(plans);
   });
@@ -97,7 +118,11 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const result = await dailyOpsService.createMealPlan(data);
       return c.json(result, 201);
     }
@@ -106,8 +131,7 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
   // --- Chores ---
   router.get('/chores', async (c) => {
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const chores = await dailyOpsService.getChores(householdId);
     return c.json(chores);
   });
@@ -118,7 +142,11 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
       if (!result.success) return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
     }),
     async (c) => {
+      const session = c.get('session' as any);
       const data = c.req.valid('json');
+      if (data.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       const chore = await dailyOpsService.createChore(data);
       return c.json(chore, 201);
     }
@@ -131,9 +159,13 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
     }),
     async (c) => {
       const id = c.req.param('id');
+      const session = c.get('session' as any);
       const { isCompleted } = c.req.valid('json');
       const chore = await dailyOpsService.toggleChore(id, isCompleted);
       if (!chore) return c.json({ error: 'Chore not found' }, 404);
+      if (chore.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       return c.json(chore);
     }
   );
@@ -146,9 +178,13 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
     }),
     async (c) => {
       const id = c.req.param('id');
+      const session = c.get('session' as any);
       const { verified } = c.req.valid('json');
       const res = await dailyOpsService.verifyChore(id, verified);
       if (!res) return c.json({ error: 'Chore not found' }, 404);
+      if (res.chore.householdId !== session.householdId) {
+        return c.json({ error: 'Forbidden: household mismatch' }, 403);
+      }
       return c.json(res);
     }
   );
@@ -156,8 +192,7 @@ export function createDailyOpsRouter(opts: DailyOpsRouterOptions) {
   router.get('/chores/points/:memberId', async (c) => {
     const memberId = c.req.param('memberId');
     const session = c.get('session' as any);
-    const householdId = c.req.query('householdId') || session?.householdId;
-    if (!householdId) return c.json({ error: 'householdId is required' }, 400);
+    const householdId = session.householdId;
     const totalPoints = await dailyOpsService.getMemberPoints(householdId, memberId);
     return c.json({ memberId, totalPoints });
   });
