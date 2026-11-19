@@ -3,3 +3,4 @@ export * from './middleware/index';
 export * from './storage/index';
 export * from './cache/index';
 export * from './sync/index';
+export * from './daily-ops-service';

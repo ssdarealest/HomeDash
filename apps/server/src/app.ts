@@ -12,10 +12,12 @@ import {
   SyncService,
   SyncPubSub,
   InMemorySyncJournalStore,
+  DailyOpsService,
 } from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
 import { createSyncRouter } from './routes/sync';
 import { createRealtimeRouter } from './routes/realtime';
+import { createDailyOpsRouter } from './routes/daily-ops';
 
 export interface AppOptions {
   jwtSecret?: string;
@@ -23,12 +25,14 @@ export interface AppOptions {
   rpId?: string;
   syncService?: SyncService;
   pubsub?: SyncPubSub;
+  dailyOpsService?: DailyOpsService;
 }
 
 export function createApp(opts?: AppOptions) {
   const app = new Hono();
   const jwtSecret = opts?.jwtSecret || process.env.JWT_SECRET || 'thang_developer_rat_dep_trai!';
   const pubsub = opts?.pubsub || new SyncPubSub();
+  const dailyOpsService = opts?.dailyOpsService || new DailyOpsService();
   const syncService =
     opts?.syncService ||
     new SyncService({
@@ -79,6 +83,13 @@ export function createApp(opts?: AppOptions) {
   });
   app.route('/api/v1/realtime', realtimeRouter);
   app.route('/realtime', realtimeRouter);
+
+  // Mount Daily Ops Router under /api/v1/daily-ops
+  const dailyOpsRouter = createDailyOpsRouter({
+    dailyOpsService,
+    jwtSecret,
+  });
+  app.route('/api/v1/daily-ops', dailyOpsRouter);
 
   // Vault break-glass initiation with auth and validation
   app.post(
