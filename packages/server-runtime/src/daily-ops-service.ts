@@ -61,6 +61,7 @@ export interface DailyOpsServiceOptions {
     householdId: string;
     accountId: string;
     amountCents: number;
+    transactionType: 'expense';
     category: string;
     description: string;
     source: string;
@@ -142,6 +143,7 @@ export class DailyOpsService {
         householdId: checkout.householdId,
         accountId: checkout.accountId,
         amountCents: checkout.totalAmountCents,
+        transactionType: 'expense',
         category: checkout.category,
         description: checkout.notes || 'Grocery Checkout',
         source: 'manual',
