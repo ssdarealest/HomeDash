@@ -2,3 +2,7 @@ export * from './auth';
 export * from './sync';
 export * from './vault';
 export * from './openapi';
+export * from './daily-ops';
+export * from './health';
+export * from './finance';
+export * from './notifications';

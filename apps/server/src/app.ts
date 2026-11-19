@@ -12,10 +12,22 @@ import {
   SyncService,
   SyncPubSub,
   InMemorySyncJournalStore,
+  DailyOpsService,
+  HealthService,
+  FinanceService,
+  AndroidIngestService,
+  VaultBreakGlassService,
+  BotNotificationDispatcher,
 } from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
 import { createSyncRouter } from './routes/sync';
 import { createRealtimeRouter } from './routes/realtime';
+import { createDailyOpsRouter } from './routes/daily-ops';
+import { createHealthRouter } from './routes/health';
+import { createFinanceRouter } from './routes/finance';
+import { createIngestRouter } from './routes/ingest';
+import { createVaultBreakGlassRouter } from './routes/vault-break-glass';
+import { createNotificationsRouter } from './routes/notifications';
 
 export interface AppOptions {
   jwtSecret?: string;
@@ -23,12 +35,50 @@ export interface AppOptions {
   rpId?: string;
   syncService?: SyncService;
   pubsub?: SyncPubSub;
+  dailyOpsService?: DailyOpsService;
+  healthService?: HealthService;
+  financeService?: FinanceService;
+  androidIngestService?: AndroidIngestService;
+  vaultBreakGlassService?: VaultBreakGlassService;
+  botDispatcher?: BotNotificationDispatcher;
+  botSecretToken?: string;
 }
 
 export function createApp(opts?: AppOptions) {
   const app = new Hono();
   const jwtSecret = opts?.jwtSecret || process.env.JWT_SECRET || 'thang_developer_rat_dep_trai!';
   const pubsub = opts?.pubsub || new SyncPubSub();
+  const healthService = opts?.healthService || new HealthService();
+  const financeService = opts?.financeService || new FinanceService();
+  const dailyOpsService =
+    opts?.dailyOpsService ||
+    new DailyOpsService({
+      getAllergies: async (hId) => healthService.getAllergies(hId),
+      logExpense: async (tx) => financeService.createTransaction(tx as any),
+      creditAllowance: async (al) => {
+        const accounts = await financeService.getAccounts(al.householdId);
+        const allowanceAccount = accounts.find(
+          (a) => a.ownerMemberId === al.memberId && a.accountType === 'personal_allowance'
+        );
+        if (allowanceAccount) {
+          return financeService.createTransaction({
+            householdId: al.householdId,
+            accountId: allowanceAccount.id,
+            amountCents: al.amountCents,
+            transactionType: 'income',
+            category: 'Allowance',
+            description: `Chore reward: ${al.title}`,
+            source: 'manual',
+          });
+        }
+        return null;
+      },
+    });
+  const androidIngestService =
+    opts?.androidIngestService || new AndroidIngestService(financeService);
+  const vaultBreakGlassService =
+    opts?.vaultBreakGlassService || new VaultBreakGlassService();
+  const botDispatcher = opts?.botDispatcher || new BotNotificationDispatcher();
   const syncService =
     opts?.syncService ||
     new SyncService({
@@ -80,25 +130,48 @@ export function createApp(opts?: AppOptions) {
   app.route('/api/v1/realtime', realtimeRouter);
   app.route('/realtime', realtimeRouter);
 
-  // Vault break-glass initiation with auth and validation
-  app.post(
-    '/vault/break-glass/initiate',
-    authMiddleware(jwtSecret),
-    requireRole(['admin', 'senior', 'teen_child']),
-    zValidator('json', BreakGlassInitiateSchema, (result, c) => {
-      if (!result.success) {
-        return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
-      }
-    }),
-    async (c) => {
-      const { householdId } = c.req.valid('json');
-      return c.json({
-        status: 'pending_cooldown',
-        householdId,
-        cooldownExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-      });
-    }
-  );
+  // Mount Daily Ops Router under /api/v1/daily-ops
+  const dailyOpsRouter = createDailyOpsRouter({
+    dailyOpsService,
+    jwtSecret,
+  });
+  app.route('/api/v1/daily-ops', dailyOpsRouter);
+
+  // Mount Health Router under /api/v1/health
+  const healthRouter = createHealthRouter({
+    healthService,
+    jwtSecret,
+  });
+  app.route('/api/v1/health', healthRouter);
+
+  // Mount Finance Router under /api/v1/finance
+  const financeRouter = createFinanceRouter({
+    financeService,
+    jwtSecret,
+  });
+  app.route('/api/v1/finance', financeRouter);
+
+  // Mount Ingest Router under /api/v1/ingest
+  const ingestRouter = createIngestRouter({
+    androidIngestService,
+  });
+  app.route('/api/v1/ingest', ingestRouter);
+
+  // Mount Vault Break-Glass Router under /api/v1/vault/break-glass and /vault/break-glass
+  const vaultBreakGlassRouter = createVaultBreakGlassRouter({
+    vaultBreakGlassService,
+    jwtSecret,
+  });
+  app.route('/api/v1/vault/break-glass', vaultBreakGlassRouter);
+  app.route('/vault/break-glass', vaultBreakGlassRouter);
+
+  // Mount Notifications Router under /api/v1/notifications
+  const notificationsRouter = createNotificationsRouter({
+    healthService,
+    botDispatcher,
+    botSecretToken: opts?.botSecretToken,
+  });
+  app.route('/api/v1/notifications', notificationsRouter);
 
   return app;
 }
