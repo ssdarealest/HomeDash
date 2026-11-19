@@ -9,3 +9,4 @@ export * from './escalation-worker';
 export * from './finance-service';
 export * from './android-ingest-service';
 export * from './vault-break-glass-service';
+export * from './bot-notification-dispatcher';

@@ -17,6 +17,7 @@ import {
   FinanceService,
   AndroidIngestService,
   VaultBreakGlassService,
+  BotNotificationDispatcher,
 } from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
 import { createSyncRouter } from './routes/sync';
@@ -26,6 +27,7 @@ import { createHealthRouter } from './routes/health';
 import { createFinanceRouter } from './routes/finance';
 import { createIngestRouter } from './routes/ingest';
 import { createVaultBreakGlassRouter } from './routes/vault-break-glass';
+import { createNotificationsRouter } from './routes/notifications';
 
 export interface AppOptions {
   jwtSecret?: string;
@@ -38,6 +40,8 @@ export interface AppOptions {
   financeService?: FinanceService;
   androidIngestService?: AndroidIngestService;
   vaultBreakGlassService?: VaultBreakGlassService;
+  botDispatcher?: BotNotificationDispatcher;
+  botSecretToken?: string;
 }
 
 export function createApp(opts?: AppOptions) {
@@ -51,6 +55,7 @@ export function createApp(opts?: AppOptions) {
     opts?.androidIngestService || new AndroidIngestService(financeService);
   const vaultBreakGlassService =
     opts?.vaultBreakGlassService || new VaultBreakGlassService();
+  const botDispatcher = opts?.botDispatcher || new BotNotificationDispatcher();
   const syncService =
     opts?.syncService ||
     new SyncService({
@@ -136,6 +141,14 @@ export function createApp(opts?: AppOptions) {
   });
   app.route('/api/v1/vault/break-glass', vaultBreakGlassRouter);
   app.route('/vault/break-glass', vaultBreakGlassRouter);
+
+  // Mount Notifications Router under /api/v1/notifications
+  const notificationsRouter = createNotificationsRouter({
+    healthService,
+    botDispatcher,
+    botSecretToken: opts?.botSecretToken,
+  });
+  app.route('/api/v1/notifications', notificationsRouter);
 
   return app;
 }
