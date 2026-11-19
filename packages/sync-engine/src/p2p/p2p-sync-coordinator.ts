@@ -16,14 +16,14 @@ export interface LocalMutationInput {
   entityTable: string;
   entityId: string;
   operation: 'INSERT' | 'UPDATE' | 'DELETE';
-  recordPayload?: Record<string, any>;
+  recordPayload?: Record<string, any> | null;
 }
 
 export interface StoredRecord {
   entityTable: string;
   entityId: string;
   operation: string;
-  recordPayload?: Record<string, any>;
+  recordPayload?: Record<string, any> | null;
   hlcTimestamp: string;
   updatedAt: string;
 }

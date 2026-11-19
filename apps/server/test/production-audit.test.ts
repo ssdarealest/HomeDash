@@ -154,12 +154,10 @@ describe('Production Deployment & Security Audit (Phase 6 Task 5)', () => {
       vaultBreakGlassService.seedTestData(household1Id, {
         escrowShares: [
           {
-            id: 'share-1',
-            householdId: household1Id,
             shareIndex: 1,
-            encryptedShare: 'ENC:AES256GCM:a7b8c9d0...ciphertext_blob',
-            holderMemberId: 'trusted-member-1',
-            createdAt: new Date().toISOString(),
+            encryptedKekShare: 'ENC:AES256GCM:a7b8c9d0...ciphertext_blob',
+            ephemeralPublicKey: 'pubkey123',
+            nonce: 'nonce123',
           },
         ],
         vaultItems: [
@@ -169,7 +167,10 @@ describe('Production Deployment & Security Audit (Phase 6 Task 5)', () => {
             title: 'Health Insurance Card',
             category: 'insurance',
             encryptedPayload: 'ENC:AES256GCM:payload_ciphertext...',
-            createdAt: new Date().toISOString(),
+            payloadNonce: 'nonce456',
+            encryptedDek: 'dek_cipher',
+            dekNonce: 'dek_nonce',
+            keyVersion: 1,
           },
         ],
       });
