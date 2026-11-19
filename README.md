@@ -209,11 +209,12 @@ pnpm turbo run test typecheck
   - Multi-role session management strictly quarantining Caregiver Guests from `/finance` and `/vault` (navigation and dashboard)
   - Glanceable spatial Bento dashboard, one-handed quick-log sheets, and Senior Mode 2-tab SOS emergency view
   - Android Companion Notification Listener platform channel (Kotlin EventChannel/MethodChannel)
-- [ ] **Phase 5: Core Functional Modules**
-  - Daily Ops (Chores, Grocery, Shared Calendar, Announcements)
-  - Family Health (Medication log, Pediatric growth, Allergy alerts)
-  - Family Finance (Allowances, Task rewards, Household expenses)
-  - Encrypted Digital Vault (E2EE documents, Emergency break-glass flow)
+- [x] **Phase 5: Core Functional Modules**
+  - Daily Ops: Recurring chore cadence with admin verification & reward allowance crediting, interactive grocery checklist with atomic checkout-to-expense ledger pipeline, and health-aware Meal Planner with automated allergy checking
+  - Family Health Hub: Scheduled medication log with photo verification, dynamic 30m missed-dose caregiver escalation worker, caregiver shift management with peer swap approvals, PHR Vitals logging & trends (BP, glucose, SpO2, temp, HR), and medical allergy registry
+  - Family Finance: Multi-account management (shared checking, personal allowance, sinking funds), automated utility bill spike detection (>1.25x rolling 3mo avg), and Android Companion push notification ingestion webhook with HMAC-SHA256 signature verification & deduplication
+  - Zero-Knowledge Vault Break-Glass Escrow: Emergency break-glass flow with 48h mandatory cooldown, instant admin token veto, lazy status evaluation, and emergency escrow share retrieval without server plaintext decryption
+  - Omnichannel Notification Bridge: Bot webhook integration with compact 64-byte action tokens (`t:<id>:taken`, `t:<id>:snooze`) and replay prevention
 - [ ] **Phase 6: Multi-Device P2P Sync & Production Hardening**
   - Local network mDNS discovery & direct P2P synchronization
   - End-to-end performance benchmarking and security audit
