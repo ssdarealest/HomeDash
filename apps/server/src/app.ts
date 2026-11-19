@@ -16,6 +16,7 @@ import {
   HealthService,
   FinanceService,
   AndroidIngestService,
+  VaultBreakGlassService,
 } from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
 import { createSyncRouter } from './routes/sync';
@@ -24,6 +25,7 @@ import { createDailyOpsRouter } from './routes/daily-ops';
 import { createHealthRouter } from './routes/health';
 import { createFinanceRouter } from './routes/finance';
 import { createIngestRouter } from './routes/ingest';
+import { createVaultBreakGlassRouter } from './routes/vault-break-glass';
 
 export interface AppOptions {
   jwtSecret?: string;
@@ -35,6 +37,7 @@ export interface AppOptions {
   healthService?: HealthService;
   financeService?: FinanceService;
   androidIngestService?: AndroidIngestService;
+  vaultBreakGlassService?: VaultBreakGlassService;
 }
 
 export function createApp(opts?: AppOptions) {
@@ -46,6 +49,8 @@ export function createApp(opts?: AppOptions) {
   const financeService = opts?.financeService || new FinanceService();
   const androidIngestService =
     opts?.androidIngestService || new AndroidIngestService(financeService);
+  const vaultBreakGlassService =
+    opts?.vaultBreakGlassService || new VaultBreakGlassService();
   const syncService =
     opts?.syncService ||
     new SyncService({
@@ -124,25 +129,13 @@ export function createApp(opts?: AppOptions) {
   });
   app.route('/api/v1/ingest', ingestRouter);
 
-  // Vault break-glass initiation with auth and validation
-  app.post(
-    '/vault/break-glass/initiate',
-    authMiddleware(jwtSecret),
-    requireRole(['admin', 'senior', 'teen_child']),
-    zValidator('json', BreakGlassInitiateSchema, (result, c) => {
-      if (!result.success) {
-        return c.json({ error: 'Validation failed', issues: result.error.issues }, 400);
-      }
-    }),
-    async (c) => {
-      const { householdId } = c.req.valid('json');
-      return c.json({
-        status: 'pending_cooldown',
-        householdId,
-        cooldownExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-      });
-    }
-  );
+  // Mount Vault Break-Glass Router under /api/v1/vault/break-glass and /vault/break-glass
+  const vaultBreakGlassRouter = createVaultBreakGlassRouter({
+    vaultBreakGlassService,
+    jwtSecret,
+  });
+  app.route('/api/v1/vault/break-glass', vaultBreakGlassRouter);
+  app.route('/vault/break-glass', vaultBreakGlassRouter);
 
   return app;
 }
