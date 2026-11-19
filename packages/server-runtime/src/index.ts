@@ -6,3 +6,5 @@ export * from './sync/index';
 export * from './daily-ops-service';
 export * from './health-service';
 export * from './escalation-worker';
+export * from './finance-service';
+export * from './android-ingest-service';

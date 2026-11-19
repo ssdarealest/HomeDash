@@ -14,12 +14,16 @@ import {
   InMemorySyncJournalStore,
   DailyOpsService,
   HealthService,
+  FinanceService,
+  AndroidIngestService,
 } from '@homedash/server-runtime';
 import { createAuthRouter } from './routes/auth';
 import { createSyncRouter } from './routes/sync';
 import { createRealtimeRouter } from './routes/realtime';
 import { createDailyOpsRouter } from './routes/daily-ops';
 import { createHealthRouter } from './routes/health';
+import { createFinanceRouter } from './routes/finance';
+import { createIngestRouter } from './routes/ingest';
 
 export interface AppOptions {
   jwtSecret?: string;
@@ -29,6 +33,8 @@ export interface AppOptions {
   pubsub?: SyncPubSub;
   dailyOpsService?: DailyOpsService;
   healthService?: HealthService;
+  financeService?: FinanceService;
+  androidIngestService?: AndroidIngestService;
 }
 
 export function createApp(opts?: AppOptions) {
@@ -37,6 +43,9 @@ export function createApp(opts?: AppOptions) {
   const pubsub = opts?.pubsub || new SyncPubSub();
   const dailyOpsService = opts?.dailyOpsService || new DailyOpsService();
   const healthService = opts?.healthService || new HealthService();
+  const financeService = opts?.financeService || new FinanceService();
+  const androidIngestService =
+    opts?.androidIngestService || new AndroidIngestService(financeService);
   const syncService =
     opts?.syncService ||
     new SyncService({
@@ -101,6 +110,19 @@ export function createApp(opts?: AppOptions) {
     jwtSecret,
   });
   app.route('/api/v1/health', healthRouter);
+
+  // Mount Finance Router under /api/v1/finance
+  const financeRouter = createFinanceRouter({
+    financeService,
+    jwtSecret,
+  });
+  app.route('/api/v1/finance', financeRouter);
+
+  // Mount Ingest Router under /api/v1/ingest
+  const ingestRouter = createIngestRouter({
+    androidIngestService,
+  });
+  app.route('/api/v1/ingest', ingestRouter);
 
   // Vault break-glass initiation with auth and validation
   app.post(
