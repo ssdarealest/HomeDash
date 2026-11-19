@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../quarantined_card.dart';
 
-class CashFlowCard extends StatelessWidget {
+class CashFlowCard extends StatelessWidget implements QuarantinedCard {
   final int totalBalanceCents;
   final int spentThisMonthCents;
   final VoidCallback onLogExpense;
@@ -11,6 +12,9 @@ class CashFlowCard extends StatelessWidget {
     required this.spentThisMonthCents,
     required this.onLogExpense,
   });
+
+  @override
+  bool get isQuarantined => true;
 
   @override
   Widget build(BuildContext context) {

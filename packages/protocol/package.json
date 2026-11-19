@@ -10,7 +10,8 @@
     "./auth": "./src/auth.ts",
     "./sync": "./src/sync.ts",
     "./vault": "./src/vault.ts",
-    "./openapi": "./src/openapi.ts"
+    "./openapi": "./src/openapi.ts",
+    "./p2p": "./src/p2p.ts"
   },
   "scripts": {
     "build": "vitest run test/generate-openapi.test.ts",

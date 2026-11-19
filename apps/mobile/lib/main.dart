@@ -6,7 +6,8 @@ import 'domain/state/session_state.dart';
 import 'domain/state/vault_state.dart';
 import 'presentation/navigation/app_router.dart';
 import 'presentation/senior/senior_dashboard.dart';
-import 'presentation/bento/bento_grid.dart';
+import 'presentation/bento/bento_grid_view.dart';
+import 'presentation/bento/bento_widgets.dart';
 import 'presentation/bento/widgets/hero_emergency_card.dart';
 import 'presentation/bento/widgets/medication_timeline_card.dart';
 import 'presentation/bento/widgets/cash_flow_card.dart';
@@ -58,19 +59,32 @@ class HomeDashApp extends StatelessWidget {
                   ),
                 ],
               ),
-              body: BentoGrid(
+              body: BentoGridView(
                 isCaregiver: session.activeRole.isCaregiver,
+                isGlassmorphic: true,
                 children: [
                   const HeroEmergencyCard(
                     title: 'Family Operational Status',
                     message: 'All systems online. Offline-first local synchronization active.',
+                  ),
+                  SystemSyncTelemetryCard(
+                    discoveredPeers: 2,
+                    hlcTimestamp: DateTime.now().toUtc().toIso8601String(),
+                    isOnline: true,
+                    isGlassmorphic: true,
+                  ),
+                  HouseholdOpsSummaryCard(
+                    pendingGroceryCount: 4,
+                    pendingChoresCount: 2,
+                    nextMealTitle: 'Pasta Primavera',
+                    isGlassmorphic: true,
                   ),
                   MedicationTimelineCard(
                     dueCount: 2,
                     completedCount: 3,
                     onLogDose: () {},
                   ),
-                  // CashFlowCard is passed to BentoGrid, which conditionally quarantines it for caregivers
+                  // CashFlowCard is passed to BentoGridView, which conditionally quarantines it for caregivers
                   CashFlowCard(
                     totalBalanceCents: 1542000,
                     spentThisMonthCents: 412000,
