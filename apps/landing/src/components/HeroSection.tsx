@@ -4,6 +4,7 @@ import { Terminal, Copy, Check, ArrowRight, ChevronDown, ShieldCheck, Zap, Lock 
 export const HeroSection: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const command = 'docker compose up -d';
+  const webappUrl = import.meta.env.VITE_WEBAPP_URL || 'http://localhost:5173';
 
   const handleCopy = async () => {
     try {
@@ -99,7 +100,7 @@ export const HeroSection: React.FC = () => {
         {/* Action CTAs */}
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
           <a
-            href="http://localhost:5173"
+            href={webappUrl}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg bg-brand-blue text-[#08090C] font-semibold text-sm hover:bg-brand-blue/90 transition-all shadow-lg hover:shadow-brand-blue/20"
           >
             <span>Launch Webapp</span>

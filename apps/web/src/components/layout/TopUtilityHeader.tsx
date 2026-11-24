@@ -84,14 +84,16 @@ export function TopUtilityHeader({
 
       {/* Center: Quick Action Pill Buttons */}
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onQuickAction?.('expense')}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/30 transition-all shadow-sm"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>+ Expense</span>
-        </button>
+        {!isQuarantined && (
+          <button
+            type="button"
+            onClick={() => onQuickAction?.('expense')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/30 transition-all shadow-sm"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>+ Expense</span>
+          </button>
+        )}
 
         <button
           type="button"

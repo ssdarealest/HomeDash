@@ -9,6 +9,7 @@ import {
   CornerDownLeft,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useSession } from '../../context/SessionContext';
 
 export interface CategoryChipDef {
   id: string;
@@ -67,8 +68,18 @@ export function HeroCommandBar({
   className = '',
 }: HeroCommandBarProps) {
   const { surface } = useTheme();
+  const { session, isCaregiver } = useSession();
   const [internalPrompt, setInternalPrompt] = useState('');
   const [internalCategory, setInternalCategory] = useState<string | null>(null);
+
+  // Strict Caregiver Quarantine: filter out Expense category
+  const isQuarantined = isCaregiver || session.role === 'caregiver_guest';
+  const visibleCategoryChips = CATEGORY_CHIPS.filter((chip) => {
+    if (chip.id === 'Expense' && isQuarantined) {
+      return false;
+    }
+    return true;
+  });
 
   const isPromptControlled = controlledPrompt !== undefined;
   const promptValue = isPromptControlled ? controlledPrompt : internalPrompt;
@@ -148,7 +159,7 @@ export function HeroCommandBar({
             <Search className="h-3 w-3" />
             <span>Category:</span>
           </span>
-          {CATEGORY_CHIPS.map((chip) => {
+          {visibleCategoryChips.map((chip) => {
             const Icon = chip.icon;
             const isSelected = currentCategory === chip.id;
             return (

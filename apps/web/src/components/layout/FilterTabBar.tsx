@@ -6,6 +6,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useSession } from '../../context/SessionContext';
 
 export type LayoutMode = 'bento' | 'table';
 
@@ -46,6 +47,16 @@ export function FilterTabBar({
   className = '',
 }: FilterTabBarProps) {
   const { surface } = useTheme();
+  const { session, isCaregiver } = useSession();
+
+  // Strict Caregiver Quarantine: filter out Vault Security tab
+  const isQuarantined = isCaregiver || session.role === 'caregiver_guest';
+  const visibleTabs = FILTER_TABS.filter((tab) => {
+    if (tab === 'Vault Security' && isQuarantined) {
+      return false;
+    }
+    return true;
+  });
 
   const [internalTab, setInternalTab] = useState('Overview');
   const [internalMember, setInternalMember] = useState('all');
@@ -90,7 +101,7 @@ export function FilterTabBar({
     >
       {/* Left: View Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto" role="tablist">
-        {FILTER_TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = currentTab === tab;
           return (
             <button

@@ -41,6 +41,22 @@ describe('Landing Page Components', () => {
       const ctaButton = screen.getByRole('link', { name: /open webapp/i });
       expect(ctaButton.getAttribute('href')).toBe('http://localhost:5173');
     });
+
+    it('uses VITE_WEBAPP_URL environment variable when provided', () => {
+      const originalEnv = import.meta.env.VITE_WEBAPP_URL;
+      try {
+        vi.stubEnv('VITE_WEBAPP_URL', 'https://app.homedash.local');
+        render(<Navbar />);
+        const ctaButton = screen.getByRole('link', { name: /open webapp/i });
+        expect(ctaButton.getAttribute('href')).toBe('https://app.homedash.local');
+      } finally {
+        if (originalEnv) {
+          vi.stubEnv('VITE_WEBAPP_URL', originalEnv);
+        } else {
+          vi.unstubAllEnvs();
+        }
+      }
+    });
   });
 
   describe('HeroSection', () => {
@@ -82,7 +98,25 @@ describe('Landing Page Components', () => {
 
       // Primary and secondary CTAs
       expect(screen.getByRole('link', { name: /explore architecture/i })).toBeDefined();
-      expect(screen.getByRole('link', { name: /launch webapp/i })).toBeDefined();
+      const launchCta = screen.getByRole('link', { name: /launch webapp/i });
+      expect(launchCta).toBeDefined();
+      expect(launchCta.getAttribute('href')).toBe('http://localhost:5173');
+    });
+
+    it('uses VITE_WEBAPP_URL environment variable for Launch Webapp link when provided', () => {
+      const originalEnv = import.meta.env.VITE_WEBAPP_URL;
+      try {
+        vi.stubEnv('VITE_WEBAPP_URL', 'https://app.homedash.local');
+        render(<HeroSection />);
+        const launchCta = screen.getByRole('link', { name: /launch webapp/i });
+        expect(launchCta.getAttribute('href')).toBe('https://app.homedash.local');
+      } finally {
+        if (originalEnv) {
+          vi.stubEnv('VITE_WEBAPP_URL', originalEnv);
+        } else {
+          vi.unstubAllEnvs();
+        }
+      }
     });
   });
 

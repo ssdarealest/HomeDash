@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { SyncTelemetryProvider } from './context/SyncTelemetryContext';
 import { AppShell } from './components/layout/AppShell';
 import { BentoGrid } from './components/bento/BentoGrid';
+import { type LayoutMode } from './components/layout/FilterTabBar';
 import { type QuickActionType } from './components/layout/TopUtilityHeader';
 import {
   ExpenseModal,
@@ -21,6 +22,8 @@ export type ActiveModalType = 'expense' | 'dose' | 'grocery' | 'break-glass' | '
 export function DashboardWorkspace() {
   const [activeModal, setActiveModal] = useState<ActiveModalType>(null);
   const [activeModule, setActiveModule] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('Overview');
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('bento');
 
   const handleQuickAction = (action: QuickActionType) => {
     setActiveModal(action);
@@ -49,8 +52,16 @@ export function DashboardWorkspace() {
         activeModule={activeModule}
         onSelectModule={setActiveModule}
         onQuickAction={handleQuickAction}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        layoutMode={layoutMode}
+        onLayoutModeChange={setLayoutMode}
       >
-        <BentoGrid onUnsealVault={() => setActiveModal('unseal')} />
+        <BentoGrid
+          viewFilter={activeTab}
+          layoutMode={layoutMode}
+          onUnsealVault={() => setActiveModal('unseal')}
+        />
       </AppShell>
 
       {/* Quick Action Modals */}

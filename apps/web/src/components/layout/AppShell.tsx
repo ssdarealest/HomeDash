@@ -14,6 +14,9 @@ export interface AppShellProps {
   defaultLayoutMode?: LayoutMode;
   layoutMode?: LayoutMode;
   onLayoutModeChange?: (mode: LayoutMode) => void;
+  defaultActiveTab?: string;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
   householdName?: string;
   members?: MemberRosterItem[];
   className?: string;
@@ -28,6 +31,9 @@ export function AppShell({
   defaultLayoutMode = 'bento',
   layoutMode: controlledLayoutMode,
   onLayoutModeChange,
+  defaultActiveTab = 'Overview',
+  activeTab: controlledActiveTab,
+  onTabChange,
   householdName,
   members,
   className = '',
@@ -37,15 +43,17 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [internalActiveModule, setInternalActiveModule] = useState(defaultActiveModule);
   const [internalLayoutMode, setInternalLayoutMode] = useState<LayoutMode>(defaultLayoutMode);
+  const [internalActiveTab, setInternalActiveTab] = useState(defaultActiveTab);
   const [commandPrompt, setCommandPrompt] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('Overview');
   const [selectedMember, setSelectedMember] = useState('all');
 
   const currentModule =
     controlledActiveModule !== undefined ? controlledActiveModule : internalActiveModule;
   const currentLayoutMode =
     controlledLayoutMode !== undefined ? controlledLayoutMode : internalLayoutMode;
+  const currentTab =
+    controlledActiveTab !== undefined ? controlledActiveTab : internalActiveTab;
 
   const handleSelectModule = (moduleId: string) => {
     if (controlledActiveModule === undefined) {
@@ -59,6 +67,13 @@ export function AppShell({
       setInternalLayoutMode(mode);
     }
     onLayoutModeChange?.(mode);
+  };
+
+  const handleTabChange = (tab: string) => {
+    if (controlledActiveTab === undefined) {
+      setInternalActiveTab(tab);
+    }
+    onTabChange?.(tab);
   };
 
   const handleCategorySelect = (cat: string | null) => {
@@ -126,8 +141,8 @@ export function AppShell({
 
           {/* View Filter Controls and Layout Toggle */}
           <FilterTabBar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
+            activeTab={currentTab}
+            onTabChange={handleTabChange}
             selectedMember={selectedMember}
             onMemberChange={setSelectedMember}
             layoutMode={currentLayoutMode}

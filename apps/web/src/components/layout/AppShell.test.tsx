@@ -268,7 +268,7 @@ describe('Figma-Inspired Spatial Navigation Shell', () => {
     expect(onLayoutModeChange).toHaveBeenCalledWith('bento');
   });
 
-  it('verifies caregiver quarantine: suppresses Finance & Vault nav and omits Break-Glass pill', async () => {
+  it('verifies caregiver quarantine: suppresses Finance & Vault nav, omits Expense & Break-Glass actions, and hides Vault Security tab', async () => {
     localStorage.setItem(
       'homedash_session',
       JSON.stringify({
@@ -295,12 +295,50 @@ describe('Figma-Inspired Spatial Navigation Shell', () => {
     expect(screen.getByRole('button', { name: /Daily Ops/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Health Hub/i })).toBeTruthy();
 
-    // Header must omit Break-Glass quick action pill
+    // Header must omit Break-Glass and + Expense quick action pills
     expect(screen.queryByRole('button', { name: /Break-Glass/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /\+ Expense/i })).toBeNull();
 
-    // Standard quick action pills (+ Expense, + Dose, + Grocery) should still be available
-    expect(screen.getByRole('button', { name: /\+ Expense/i })).toBeTruthy();
+    // Standard non-quarantined quick action pills (+ Dose, + Grocery) should still be available
     expect(screen.getByRole('button', { name: /\+ Dose/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /\+ Grocery/i })).toBeTruthy();
+
+    // HeroCommandBar must omit Expense category chip
+    expect(screen.queryByRole('button', { name: /^Expense$/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Grocery$/i })).toBeTruthy();
+
+    // FilterTabBar must omit Vault Security tab
+    expect(screen.queryByRole('tab', { name: /Vault Security/i })).toBeNull();
+    expect(screen.getByRole('tab', { name: /Overview/i })).toBeTruthy();
+  });
+
+  it('supports controlled activeTab and layoutMode with callback propagation', async () => {
+    const onTabChange = vi.fn();
+    const onLayoutModeChange = vi.fn();
+
+    await renderWithProviders(
+      <AppShell
+        activeTab="Caregiver Schedule"
+        onTabChange={onTabChange}
+        layoutMode="table"
+        onLayoutModeChange={onLayoutModeChange}
+      >
+        <div data-testid="test-content">Controlled Content</div>
+      </AppShell>
+    );
+
+    // Selected tab matches controlled prop
+    const caregiverTab = screen.getByRole('tab', { name: /Caregiver Schedule/i });
+    expect(caregiverTab.getAttribute('aria-selected')).toBe('true');
+
+    // Clicking another tab triggers onTabChange
+    const overviewTab = screen.getByRole('tab', { name: /Overview/i });
+    fireEvent.click(overviewTab);
+    expect(onTabChange).toHaveBeenCalledWith('Overview');
+
+    // Layout toggle triggers onLayoutModeChange
+    const bentoBtn = screen.getByTestId('layout-toggle-bento');
+    fireEvent.click(bentoBtn);
+    expect(onLayoutModeChange).toHaveBeenCalledWith('bento');
   });
 });

@@ -12,6 +12,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateDocs,
   isDocsView = false,
 }) => {
+  const webappUrl = import.meta.env.VITE_WEBAPP_URL || 'http://localhost:5173';
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-[#08090C]/85 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -105,7 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Open Webapp CTA */}
         <div className="flex items-center gap-4">
           <a
-            href="http://localhost:5173"
+            href={webappUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-brand-blue text-[#08090C] hover:bg-brand-blue/90 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 focus:ring-offset-[#08090C]"
