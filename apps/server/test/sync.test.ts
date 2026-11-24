@@ -209,4 +209,60 @@ describe('Server Sync REST API', () => {
 
     expect(res.status).toBe(400);
   });
+
+  describe('Sync Telemetry (GET /api/v1/sync/telemetry)', () => {
+    it('should reject unauthenticated request to /api/v1/sync/telemetry with 401', async () => {
+      const res = await app.request('/api/v1/sync/telemetry', {
+        method: 'GET',
+      });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should return node sync status and peer telemetry via GET /api/v1/sync/telemetry', async () => {
+      const res = await app.request('/api/v1/sync/telemetry', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.householdId).toBe(householdId);
+      expect(data.status).toBe('connected');
+      expect(data.hlcTimestamp).toBeDefined();
+      expect(typeof data.connectedPeers).toBe('number');
+      expect(Array.isArray(data.peerList)).toBe(true);
+    });
+
+    it('should return peer telemetry with active peers when peers are present', async () => {
+      (syncService as any).peerList = [
+        {
+          peerId: '77777777-7777-7777-7777-777777777777',
+          deviceName: 'Kitchen Display',
+          address: '192.168.1.120:8765',
+          lastSeen: Date.now(),
+        },
+      ];
+
+      try {
+        const res = await app.request('/api/v1/sync/telemetry', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        });
+
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.connectedPeers).toBe(1);
+        expect(data.peerList.length).toBe(1);
+        expect(data.peerList[0].deviceName).toBe('Kitchen Display');
+        expect(data.peerList[0].address).toBe('192.168.1.120:8765');
+      } finally {
+        delete (syncService as any).peerList;
+      }
+    });
+  });
 });

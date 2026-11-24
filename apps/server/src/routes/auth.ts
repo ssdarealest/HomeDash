@@ -36,6 +36,12 @@ const PasskeyRegisterOptionsSchema = z.object({
   displayName: z.string().min(1),
 });
 
+const SessionMintSchema = z.object({
+  role: z.enum(['admin', 'senior', 'teen_child', 'child', 'caregiver_guest']).default('admin'),
+  householdId: z.string().min(1).default('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'),
+  userId: z.string().min(1).default(() => crypto.randomUUID()),
+});
+
 export function createAuthRouter(opts: AuthRouterOptions) {
   const router = new Hono();
   const magicSecret = opts.magicLinkSecret || opts.jwtSecret;
@@ -201,6 +207,44 @@ export function createAuthRouter(opts: AuthRouterOptions) {
       rpId,
       timeout: 60000,
       userVerification: 'preferred',
+    });
+  });
+
+  // 6. Mint Session JWT (for web client, dev, and testing)
+  router.post('/session', async (c) => {
+    let rawBody: unknown = {};
+    try {
+      const text = await c.req.text();
+      if (text && text.trim().length > 0) {
+        rawBody = JSON.parse(text);
+      }
+    } catch {
+      return c.json({ error: 'Validation failed', message: 'Invalid JSON body' }, 400);
+    }
+
+    const parseResult = SessionMintSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: 'Validation failed', issues: parseResult.error.issues }, 400);
+    }
+
+    const { role, householdId, userId } = parseResult.data;
+    const isTemporaryCaregiver = role === 'caregiver_guest';
+
+    const sessionToken = await signSessionJwt(
+      {
+        userId,
+        householdId,
+        role: role as any,
+        isTemporaryCaregiver,
+      },
+      opts.jwtSecret
+    );
+
+    return c.json({
+      sessionToken,
+      role,
+      householdId,
+      userId,
     });
   });
 
