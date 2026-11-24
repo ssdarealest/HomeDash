@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #ffffff;
+    --text-primary: #0f172a;
+  }
+
+  :root.dark {
+    --bg-primary: #08090c;
+    --text-primary: #f8fafc;
+  }
+}
+
+/* Glassmorphism vs Solid surface utility classes */
+[data-surface="glass"] .surface-card {
+  @apply bg-slate-900/60 backdrop-blur-md border border-white/10 shadow-lg shadow-black/20;
+}
+
+[data-surface="solid"] .surface-card {
+  @apply bg-slate-900 border border-slate-800 shadow-md;
+}
+
+/* Light mode variants */
+:root.light [data-surface="glass"] .surface-card {
+  @apply bg-white/70 backdrop-blur-md border border-slate-200 shadow-lg shadow-slate-200/50 text-slate-900;
+}
+
+:root.light [data-surface="solid"] .surface-card {
+  @apply bg-slate-50 border border-slate-200 shadow-md text-slate-900;
+}
