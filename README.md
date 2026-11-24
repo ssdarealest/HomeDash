@@ -33,37 +33,37 @@ Modern household management is fragmented across chaotic chat threads, generic n
 HomeDash is engineered as a strictly stratified 6-tier monorepo using **pnpm workspaces** and **Turborepo**. Package dependencies flow strictly **downward** to guarantee zero circular dependencies and modular reusability:
 
 ```
-┌────────────────────────────────────────────────────────┐
-│ Tier 5: Apps                                           │
-│ apps/server (Hono Backend) | apps/mobile (Flutter App) │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
-│ Tier 4: Server Runtime                                 │
-│ packages/server-runtime (JWT, Magic Link, RBAC, RLS)   │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
-│ Tier 3: Client Sync Engine                             │
-│ packages/sync-engine (HLC, Outbox, SQLite Reconciler)  │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
-│ Tier 2: Schemas & Data Layer                           │
-│ packages/server-schema (Postgres/Drizzle/RLS/CDC)      │
-│ packages/client-schema (SQLite / Drift DDL)            │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
-│ Tier 1: Core Domain Contracts & Security               │
-│ packages/protocol (Zod RPC & OpenAPI Specification)    │
-│ packages/crypto (AES-256-GCM Envelope & Escrow)        │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
-│ Tier 0: Foundation Primitives                          │
-│ packages/shared (Hybrid Logical Clock, Result Types)   │
-└────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Tier 5: Applications                                                                             │
+│ apps/server (Hono) | apps/mobile (Flutter) | apps/web (Web Dashboard) | apps/landing (Docs Site)│
+└───────────────────────────────────────────────┬──────────────────────────────────────────────────┘
+                                                │
+┌───────────────────────────────────────────────▼──────────────────────────────────────────────────┐
+│ Tier 4: Server Runtime                                                                           │
+│ packages/server-runtime (JWT, Magic Link, RBAC, RLS)                                             │
+└───────────────────────────────────────────────┬──────────────────────────────────────────────────┘
+                                                │
+┌───────────────────────────────────────────────▼──────────────────────────────────────────────────┐
+│ Tier 3: Client Sync Engine                                                                       │
+│ packages/sync-engine (HLC, Outbox, SQLite Reconciler, P2P Sync)                                  │
+└───────────────────────────────────────────────┬──────────────────────────────────────────────────┘
+                                                │
+┌───────────────────────────────────────────────▼──────────────────────────────────────────────────┐
+│ Tier 2: Schemas & Data Layer                                                                     │
+│ packages/server-schema (Postgres/Drizzle/RLS/CDC)                                                 │
+│ packages/client-schema (SQLite / Drift DDL)                                                      │
+└───────────────────────────────────────────────┬──────────────────────────────────────────────────┘
+                                                │
+┌───────────────────────────────────────────────▼──────────────────────────────────────────────────┐
+│ Tier 1: Core Domain Contracts & Security                                                         │
+│ packages/protocol (Zod RPC & OpenAPI Specification)                                              │
+│ packages/crypto (AES-256-GCM Envelope & Escrow)                                                  │
+└───────────────────────────────────────────────┬──────────────────────────────────────────────────┘
+                                                │
+┌───────────────────────────────────────────────▼──────────────────────────────────────────────────┐
+│ Tier 0: Foundation Primitives                                                                    │
+│ packages/shared (Hybrid Logical Clock, Result Types)                                             │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Monorepo Structure
@@ -72,13 +72,16 @@ HomeDash is engineered as a strictly stratified 6-tier monorepo using **pnpm wor
 HomeDash/
 ├── apps/
 │   ├── server/                  # Tier 5: Hono API server, route handlers, auth
-│   └── mobile/                  # Tier 5: Flutter cross-platform client (iOS/Android/Web)
+│   ├── mobile/                  # Tier 5: Flutter cross-platform client (iOS/Android/Web)
+│   ├── web/                     # Tier 5: React 19 spatial desktop web dashboard
+│   └── landing/                 # Tier 5: MindStudio-aesthetic landing page & documentation portal
 ├── packages/
 │   ├── shared/                  # Tier 0: HLC, Result<T, E>, functional utilities
 │   ├── protocol/                # Tier 1: Zod schemas, OpenAPI generators, sync contracts
 │   ├── crypto/                  # Tier 1: Zero-knowledge AES-256-GCM, Argon2id, Escrow
 │   ├── client-schema/           # Tier 2: SQLite DDL, local migrations, sync tables
 │   ├── server-schema/           # Tier 2: Drizzle ORM, PostgreSQL RLS policies, CDC triggers
+│   ├── sync-engine/             # Tier 3: Client sync engine, HLC reconciler, P2P discovery
 │   └── server-runtime/          # Tier 4: Auth tokens, RBAC, RLS middleware, S3, Valkey
 ├── deploy/
 │   ├── docker-compose.yml       # Production self-host orchestration stack
@@ -155,6 +158,12 @@ pnpm -F @homedash/server-schema db:seed
 # Start backend server in watch mode
 pnpm -F @homedash/server dev
 
+# Start desktop web dashboard (React 19)
+pnpm -F @homedash/web dev
+
+# Start documentation and landing portal
+pnpm -F @homedash/landing dev
+
 # Or run full monorepo development pipeline
 pnpm dev
 ```
@@ -222,6 +231,19 @@ pnpm turbo run test typecheck
   - Desktop & tablet responsive Bento Grid workspace (1 to 4 adaptive columns) with toggleable Glassmorphic and Solid M3 theme treatments (`BentoGridView`, `GlassmorphicCard`, `SystemSyncTelemetryCard`)
   - Production deployment validation with container health checks (`postgres`, `valkey`, `minio`, `server`, `caddy`)
   - 1,000-mutation HLC benchmark (<100ms) and comprehensive automated security audit confirming strict caregiver quarantine, zero plaintext vault leaks, and multi-tenant isolation
+- [x] **Phase 7: Web Application Dashboard (`apps/web`)**
+  - Modern desktop web client built with React 19, TypeScript, and Tailwind CSS
+  - Figma-inspired spatial navigation shell (`AppShell`) with collapsible sidebar and CommandBar (`Cmd+K` palette)
+  - Glanceable spatial Bento Grid layout with responsive domain cards (Chores, Grocery, Health, Budget, Vault, Sync Telemetry)
+  - Strict caregiver quarantine enforcement gating sensitive financial and vault controls
+  - Interactive quick action dialogs: Chore creation, Grocery item addition, Expense recording, and in-browser client-side Zero-Knowledge AES-256-GCM vault passphrase unsealing
+  - Real-time Hybrid Logical Clock (HLC) and sync telemetry context integration
+- [x] **Phase 8: Landing Page & Documentation Portal (`apps/landing`)**
+  - MindStudio and Immurok dark-mode aesthetic landing site with glowing gradients and ambient backdrops
+  - Responsive Hero section with live interactive command simulator and quick start CTA
+  - Interactive feature showcase tabs (Local-First Sync, Zero-Knowledge Vault, Multi-Gen UX, Self-Hosting)
+  - Interactive technical documentation portal with sidebar navigation, search filter, and tabbed guides (Quickstart, Architecture, Security & Crypto, Self-Hosting)
+  - Full Vite build pipeline integration with 100% type safety and zero external runtime dependencies
 
 ---
 

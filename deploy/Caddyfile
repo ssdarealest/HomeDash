@@ -11,6 +11,19 @@
         Permissions-Policy "camera=(), microphone=(), geolocation=()"
     }
 
+    # Realtime SSE stream endpoints with unbuffered flush
+    handle /api/v1/realtime/stream {
+        reverse_proxy server:3000 {
+            flush_interval -1
+        }
+    }
+
+    handle /realtime/stream {
+        reverse_proxy server:3000 {
+            flush_interval -1
+        }
+    }
+
     # API and Backend WebSocket routing
     handle /api/* {
         reverse_proxy server:3000
@@ -28,8 +41,10 @@
         reverse_proxy server:3000
     }
 
-    # Catch-all fallback to server
+    # Web client static assets with SPA routing fallback
     handle {
-        reverse_proxy server:3000
+        root * /srv/web/dist
+        try_files {path} /index.html
+        file_server
     }
 }
