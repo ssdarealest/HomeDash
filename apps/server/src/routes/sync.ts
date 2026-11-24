@@ -7,11 +7,24 @@ import {
 import {
   authMiddleware,
   type SyncService,
+  type SessionPayload,
 } from '@homedash/server-runtime';
+import { HybridLogicalClock } from '@homedash/shared';
+
+export interface PeerTelemetryItem {
+  peerId: string;
+  deviceName: string;
+  address: string;
+  lastSeen: number;
+}
 
 export interface SyncRouterOptions {
   syncService: SyncService;
   jwtSecret: string;
+  getPeers?: (householdId: string) => PeerTelemetryItem[];
+  peerDiscoveryManager?: {
+    getPeers: (householdId: string) => PeerTelemetryItem[];
+  };
 }
 
 export function createSyncRouter(opts: SyncRouterOptions) {
@@ -83,6 +96,46 @@ export function createSyncRouter(opts: SyncRouterOptions) {
         }
         return c.json({ error: msg }, 500);
       }
+    }
+  );
+
+  // GET /sync/telemetry
+  router.get(
+    '/telemetry',
+    authMiddleware(jwtSecret),
+    async (c) => {
+      const session = c.get('session' as any) as SessionPayload;
+      const householdId = session.householdId;
+
+      const serverClock = (syncService as any)?.serverClock;
+      const hlcTimestamp = serverClock
+        ? HybridLogicalClock.pack(serverClock.getTimestamp())
+        : HybridLogicalClock.pack(new HybridLogicalClock('server-core', Date.now(), 0).getTimestamp());
+
+      const rawPeers =
+        opts.getPeers?.(householdId) ??
+        opts.peerDiscoveryManager?.getPeers(householdId) ??
+        (syncService as any)?.getPeers?.(householdId) ??
+        (syncService as any)?.peerList ??
+        [];
+
+      const peerList: PeerTelemetryItem[] = rawPeers.map((p: any) => ({
+        peerId: p.peerId,
+        deviceName: p.deviceName,
+        address: p.address,
+        lastSeen: p.lastSeen,
+      }));
+
+      return c.json(
+        {
+          householdId,
+          status: 'connected',
+          hlcTimestamp,
+          connectedPeers: peerList.length,
+          peerList,
+        },
+        200
+      );
     }
   );
 

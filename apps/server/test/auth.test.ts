@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createApp } from '../src/app';
-import { signSessionJwt } from '@homedash/server-runtime';
+import { signSessionJwt, verifySessionJwt } from '@homedash/server-runtime';
 
 describe('Auth REST Endpoints (/api/v1/auth)', () => {
   const jwtSecret = 'test-jwt-secret-for-integration-testing-at-least-32-chars';
@@ -179,5 +179,70 @@ describe('Auth REST Endpoints (/api/v1/auth)', () => {
       body: JSON.stringify({ token }),
     });
     expect(secondConsume.status).toBe(401);
+  });
+
+  describe('Session Minting (POST /api/v1/auth/session)', () => {
+    it('should mint session token for requested admin role', async () => {
+      const res = await app.request('/api/v1/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'admin' }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.sessionToken).toBeDefined();
+      expect(body.role).toBe('admin');
+      expect(body.householdId).toBeDefined();
+      expect(body.userId).toBeDefined();
+
+      const claims = await verifySessionJwt(body.sessionToken, jwtSecret);
+      expect(claims).not.toBeNull();
+      expect(claims?.role).toBe('admin');
+      expect(claims?.userId).toBe(body.userId);
+      expect(claims?.householdId).toBe(body.householdId);
+    });
+
+    it('should mint session token for caregiver_guest role and set isTemporaryCaregiver', async () => {
+      const customHouseholdId = '22222222-2222-2222-2222-222222222222';
+      const customUserId = '44444444-4444-4444-4444-444444444444';
+
+      const res = await app.request('/api/v1/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: 'caregiver_guest',
+          householdId: customHouseholdId,
+          userId: customUserId,
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.sessionToken).toBeDefined();
+      expect(body.role).toBe('caregiver_guest');
+      expect(body.householdId).toBe(customHouseholdId);
+      expect(body.userId).toBe(customUserId);
+
+      const meRes = await app.request('/api/v1/auth/me', {
+        headers: { Authorization: `Bearer ${body.sessionToken}` },
+      });
+      expect(meRes.status).toBe(200);
+      const meBody = await meRes.json();
+      expect(meBody.role).toBe('caregiver_guest');
+      expect(meBody.isTemporaryCaregiver).toBe(true);
+    });
+
+    it('should reject invalid role when minting session', async () => {
+      const res = await app.request('/api/v1/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'invalid_role_candidate' }),
+      });
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe('Validation failed');
+    });
   });
 });
