@@ -1,7 +1,17 @@
 import React from 'react';
 import { Shield, ExternalLink } from 'lucide-react';
 
-export const Navbar: React.FC = () => {
+export interface NavbarProps {
+  onNavigateLanding?: () => void;
+  onNavigateDocs?: () => void;
+  isDocsView?: boolean;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
+  onNavigateLanding,
+  onNavigateDocs,
+  isDocsView = false,
+}) => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-[#08090C]/85 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -10,7 +20,16 @@ export const Navbar: React.FC = () => {
           <div className="p-2 rounded-lg bg-[#0D1117] border border-slate-800 text-brand-blue shadow-sm">
             <Shield className="w-5 h-5" aria-hidden="true" />
           </div>
-          <a href="#" className="flex items-center gap-2 group">
+          <a
+            href="#"
+            onClick={(e) => {
+              if (onNavigateLanding) {
+                e.preventDefault();
+                onNavigateLanding();
+              }
+            }}
+            className="flex items-center gap-2 group"
+          >
             <span className="text-lg font-bold tracking-tight text-slate-100 group-hover:text-brand-blue transition-colors">
               HomeDash
             </span>
@@ -24,25 +43,54 @@ export const Navbar: React.FC = () => {
         <nav aria-label="Main Navigation" className="hidden md:flex items-center gap-8">
           <a
             href="#features"
+            onClick={(e) => {
+              if (onNavigateLanding && isDocsView) {
+                e.preventDefault();
+                onNavigateLanding();
+                window.location.hash = '#features';
+              }
+            }}
             className="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors"
           >
             Features
           </a>
           <a
             href="#architecture"
+            onClick={(e) => {
+              if (onNavigateLanding && isDocsView) {
+                e.preventDefault();
+                onNavigateLanding();
+                window.location.hash = '#architecture';
+              }
+            }}
             className="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors"
           >
             Architecture
           </a>
           <a
             href="#platforms"
+            onClick={(e) => {
+              if (onNavigateLanding && isDocsView) {
+                e.preventDefault();
+                onNavigateLanding();
+                window.location.hash = '#platforms';
+              }
+            }}
             className="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors"
           >
             Platforms
           </a>
           <a
             href="#docs"
-            className="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors"
+            onClick={(e) => {
+              if (onNavigateDocs) {
+                e.preventDefault();
+                onNavigateDocs();
+              }
+            }}
+            className={`text-sm font-medium transition-colors ${
+              isDocsView ? 'text-brand-blue font-semibold' : 'text-slate-400 hover:text-slate-100'
+            }`}
           >
             Docs
           </a>

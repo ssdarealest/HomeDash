@@ -1,7 +1,15 @@
 import React from 'react';
-import { Shield, Github, BookOpen, Layers, Lock } from 'lucide-react';
+import { Shield, Github, BookOpen, Lock } from 'lucide-react';
 
-export const Footer: React.FC = () => {
+export interface FooterProps {
+  onNavigateLanding?: () => void;
+  onNavigateDocs?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({
+  onNavigateLanding,
+  onNavigateDocs,
+}) => {
   return (
     <footer id="footer" className="bg-[#08090C] border-t border-slate-800 text-slate-400 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -77,6 +85,12 @@ export const Footer: React.FC = () => {
               <li>
                 <a
                   href="#docs"
+                  onClick={(e) => {
+                    if (onNavigateDocs) {
+                      e.preventDefault();
+                      onNavigateDocs();
+                    }
+                  }}
                   className="hover:text-slate-100 transition-colors inline-flex items-center gap-2"
                 >
                   <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
@@ -98,7 +112,16 @@ export const Footer: React.FC = () => {
             &copy; {new Date().getFullYear()} HomeDash Contributors. MIT License.
           </div>
           <div className="flex items-center gap-6">
-            <a href="#hero" className="hover:text-slate-300 transition-colors">
+            <a
+              href="#hero"
+              onClick={(e) => {
+                if (onNavigateLanding) {
+                  e.preventDefault();
+                  onNavigateLanding();
+                }
+              }}
+              className="hover:text-slate-300 transition-colors"
+            >
               Back to Top
             </a>
             <span className="text-slate-700">|</span>
