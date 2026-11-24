@@ -61,6 +61,27 @@ export function AppShell({
     onLayoutModeChange?.(mode);
   };
 
+  const handleCategorySelect = (cat: string | null) => {
+    setSelectedCategory(cat);
+    if (cat === 'Expense') {
+      onQuickAction?.('expense');
+    } else if (cat === 'Medication') {
+      onQuickAction?.('dose');
+    } else if (cat === 'Grocery') {
+      onQuickAction?.('grocery');
+    }
+  };
+
+  const handleHeroSubmit = (prompt: string, cat?: string | null) => {
+    if (cat === 'Expense') {
+      onQuickAction?.('expense');
+    } else if (cat === 'Medication') {
+      onQuickAction?.('dose');
+    } else if (cat === 'Grocery') {
+      onQuickAction?.('grocery');
+    }
+  };
+
   const isDark = theme === 'dark';
   const rootBgClass = isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900';
 
@@ -99,10 +120,8 @@ export function AppShell({
             prompt={commandPrompt}
             onPromptChange={setCommandPrompt}
             selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-            onSubmit={(prompt, cat) => {
-              // Can emit or integrate with domain dispatcher
-            }}
+            onSelectCategory={handleCategorySelect}
+            onSubmit={handleHeroSubmit}
           />
 
           {/* View Filter Controls and Layout Toggle */}

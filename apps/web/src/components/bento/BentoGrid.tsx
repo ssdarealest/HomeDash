@@ -27,6 +27,7 @@ export interface BentoGridProps {
   viewFilter?: BentoViewFilter | string;
   layoutMode?: LayoutMode;
   memberFilter?: string;
+  onUnsealVault?: () => void;
   className?: string;
 }
 
@@ -43,6 +44,7 @@ export function BentoGrid({
   viewFilter: rawViewFilter = 'overview',
   layoutMode = 'bento',
   memberFilter = 'all',
+  onUnsealVault,
   className = '',
 }: BentoGridProps) {
   const { session, isCaregiver } = useSession();
@@ -314,7 +316,7 @@ export function BentoGrid({
       {/* Break-Glass Status Card: col-span-1 (quarantined for caregiver) */}
       {showBreakGlass && (
         <div className="col-span-1">
-          <BreakGlassStatusCard />
+          <BreakGlassStatusCard onUnseal={onUnsealVault} />
         </div>
       )}
 
